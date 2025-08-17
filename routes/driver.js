@@ -1,0 +1,26 @@
+const express = require('express');
+const driverController = require('../controllers/driverController');
+const { authenticateToken } = require('../middleware/auth');
+const { uploadMultiple } = require('../middleware/upload');
+const router = express.Router();
+
+router.use(authenticateToken);
+
+const uploadFields = uploadMultiple([
+  { name: 'license', maxCount: 1 },
+  { name: 'nid', maxCount: 1 },
+  { name: 'selfie', maxCount: 1 },
+  { name: 'vehicleImage', maxCount: 1 }
+]);
+
+router.post('/register', uploadFields, driverController.register);
+router.get('/profile', driverController.getProfile);
+router.put('/profile', driverController.updateProfile);
+router.put('/location', driverController.updateLocation);
+router.put('/online-status', driverController.toggleOnlineStatus);
+router.get('/trip-history', driverController.getTripHistory);
+router.get('/earnings', driverController.getEarnings);
+router.post('/withdrawal', driverController.requestWithdrawal);
+router.get('/reviews', driverController.getReviews);
+
+module.exports = router;

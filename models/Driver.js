@@ -1,0 +1,152 @@
+const mongoose = require('mongoose');
+
+const driverSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  licenseNumber: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  licenseImage: {
+    type: String,
+    required: true
+  },
+  nidNumber: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  nidImage: {
+    type: String,
+    required: true
+  },
+  selfieImage: {
+    type: String,
+    required: true
+  },
+  vehicle: {
+    type: {
+      type: String,
+      required: true
+    },
+    model: {
+      type: String,
+      required: true
+    },
+    year: {
+      type: Number,
+      required: true
+    },
+    plateNumber: {
+      type: String,
+      required: true,
+      unique: true
+    },
+    color: {
+      type: String,
+      required: true
+    },
+    image: String,
+    registrationDocument: String
+  },
+  serviceTypes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Service'
+  }],
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected', 'suspended'],
+    default: 'pending'
+  },
+  isOnline: {
+    type: Boolean,
+    default: false
+  },
+  isAvailable: {
+    type: Boolean,
+    default: true
+  },
+  currentLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      default: [0, 0]
+    }
+  },
+  ratings: {
+    average: {
+      type: Number,
+      default: 0
+    },
+    count: {
+      type: Number,
+      default: 0
+    }
+  },
+  earnings: {
+    total: {
+      type: Number,
+      default: 0
+    },
+    available: {
+      type: Number,
+      default: 0
+    },
+    withdrawn: {
+      type: Number,
+      default: 0
+    }
+  },
+  withdrawals: [{
+    amount: Number,
+    bankDetails: {
+      accountNumber: String,
+      bankName: String,
+      accountHolderName: String
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'completed', 'failed'],
+      default: 'pending'
+    },
+    requestDate: {
+      type: Date,
+      default: Date.now
+    },
+    completedDate: Date
+  }],
+  suspensions: [{
+    reason: String,
+    duration: Number, // days
+    startDate: {
+      type: Date,
+      default: Date.now
+    },
+    endDate: Date,
+    isActive: {
+      type: Boolean,
+      default: true
+    }
+  }],
+  documents: {
+    licenseExpiry: Date,
+    nidExpiry: Date,
+    vehicleRegistrationExpiry: Date
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+driverSchema.index({ currentLocation: '2dsphere' });
+
+module.exports = mongoose.model('Driver', driverSchema);
