@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const logger = require('../utils/logger');
+const { accessTokenSecrete } = require('../config/config');
 
 const socketAuth = async (socket, next) => {
   try {
@@ -9,7 +10,7 @@ const socketAuth = async (socket, next) => {
       return next(new Error('Authentication error'));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, accessTokenSecrete);
     const user = await User.findById(decoded.userId);
 
     if (!user) {

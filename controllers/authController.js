@@ -5,6 +5,8 @@ const OTP = require('../models/OTP');
 const { generateOTP, sendOTP } = require('../services/otpService');
 const { validateRegister, validateLogin } = require('../validators/authValidator');
 const logger = require('../utils/logger');
+const { refreshTokenSecrete, refreshTokenExpires } = require('../config/config');
+
 
 class AuthController {
   async register(req, res) {
@@ -89,13 +91,10 @@ class AuthController {
 
       // Find user by email or phone
       const user = await User.findOne({
-        $or: [
-          { email: emailOrPhone },
-          { phoneNumber: emailOrPhone }
-        ]
+        $or: [{ email: emailOrPhone }, { phoneNumber: emailOrPhone }]
       });
 
-      if (!user || !await user.comparePassword(password)) {
+      if (!user || !(await user.comparePassword(password))) {
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
@@ -109,25 +108,26 @@ class AuthController {
         });
       }
 
-      // Generate JWT token
-      const token = jwt.sign(
-        { userId: user._id, role: user.role },
-        process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '7d' }
-      );
+      const payload = { _id: user._id, role: user.role };
 
-      // Update login history
+      const token = user.generateAccessToken(payload);
+      const refreshToken = user.generateRefreshToken(payload);
+
+      // Save refresh token + login history
+      user.refreshToken = refreshToken;
       user.loginHistory.push({
         device: req.headers['user-agent'],
         ipAddress: req.ip || req.connection.remoteAddress
       });
-      await user.save();
+      await user.save({ validateBeforeSave: false });
 
+      // Send only one response
       res.json({
         success: true,
         message: 'Login successful',
         data: {
           token,
+          refreshToken,
           user: {
             id: user._id,
             fullName: user.fullName,
@@ -140,9 +140,50 @@ class AuthController {
           }
         }
       });
-
     } catch (error) {
       logger.error('Login error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  async refreshToken(req, res) {
+    try {
+
+      const { refreshToken } = req.body;
+
+      const userId = req.user.userId;
+
+      if (!refreshToken) throw new Error('No refresh token provided');
+
+      const user = await User.findById(userId).select('-password');
+
+      if (!user) throw new Error('Invalid refresh token');
+
+      const decoded = jwt.verify(refreshToken, refreshTokenSecrete);
+
+      if (!decoded || decoded._id !== user._id.toString()) throw new Error('Invalid refresh token')
+
+      const payload = { _id: user._id, role: user.role }
+
+      const accessToken = user.generateAccessToken(payload);
+      const newRefreshToken = user.generateRefreshToken(payload);
+
+      user.refreshToken = newRefreshToken;
+      await user.save({ validateBeforeSave: false })
+
+      return res.json({
+        success: true,
+        message: 'Token refreshed successfully',
+        data: {
+          accessToken,
+          refreshToken: newRefreshToken
+        }
+      });
+    } catch (error) {
+      logger.error('Refresh token error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error'
@@ -204,9 +245,9 @@ class AuthController {
     }
   }
 
-    async changePassword(req, res) {
+  async changePassword(req, res) {
 
-    const {userId: id} = req.user;
+    const { userId: id } = req.user;
 
     console.log(req.user);
 

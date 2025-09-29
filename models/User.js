@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { refreshTokenSecrete, refreshTokenExpires, accessTokenSecrete, accessTokenExpires } = require('../config/config');
+const jwt = require('jsonwebtoken');
 
 const userSchema = new mongoose.Schema({
   fullName: {
@@ -116,6 +118,12 @@ const userSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+
+  refreshToken: {
+    type: String,
+    default: null
+  },
+
   isActive: {
     type: Boolean,
     default: true
@@ -126,6 +134,7 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+
 userSchema.index({ currentLocation: '2dsphere' });
 
 userSchema.pre('save', async function(next) {
@@ -133,6 +142,14 @@ userSchema.pre('save', async function(next) {
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
+
+userSchema.methods.generateRefreshToken = function (payload) {
+  return jwt.sign(payload, refreshTokenSecrete, { expiresIn: refreshTokenExpires });
+};
+
+userSchema.methods.generateAccessToken = function (payload) {
+  return jwt.sign(payload, accessTokenSecrete, { expiresIn: accessTokenExpires });
+};
 
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);

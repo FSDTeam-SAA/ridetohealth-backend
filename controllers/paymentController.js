@@ -1,4 +1,5 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { stripeSecret, clientUrl } = require('../config/config');
+const stripe = require('stripe')(stripeSecret);
 const User = require('../models/User');
 const Ride = require('../models/Ride');
 const PromoCode = require('../models/PromoCode');
@@ -16,7 +17,7 @@ class PaymentController {
         currency: 'usd',
         payment_method: paymentMethodId,
         confirm: true,
-        return_url: process.env.CLIENT_URL
+        return_url: clientUrl || 'http://localhost:3000'
       });
 
       if (paymentIntent.status === 'succeeded') {
@@ -196,7 +197,7 @@ class PaymentController {
             currency: 'usd',
             payment_method: paymentMethodId,
             confirm: true,
-            return_url: process.env.CLIENT_URL
+            return_url: clientUrl || 'http://localhost:3000'
           });
 
           if (paymentIntent.status === 'succeeded') {

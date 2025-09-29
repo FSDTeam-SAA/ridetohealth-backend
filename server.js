@@ -20,12 +20,13 @@ const notificationRoutes = require('./routes/notification');
 const socketHandler = require('./services/socketService');
 const logger = require('./utils/logger');
 const errorHandler = require('./middleware/errorHandler');
+const { clientUrl, mongoURI, port } = require('./config/config');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "*",
+    origin: clientUrl || "*",
     methods: ["GET", "POST"]
   }
 });
@@ -62,11 +63,11 @@ app.use('/api/notification', notificationRoutes);
 app.use(errorHandler);
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(mongoURI)
 .then(() => logger.info('Connected to MongoDB'))
 .catch(err => logger.error('MongoDB connection error:', err));
 
-const PORT = process.env.PORT || 5000;
+const PORT = port || 5000;
 server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
 });

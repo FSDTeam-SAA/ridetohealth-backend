@@ -1,17 +1,18 @@
 const twilio = require('twilio');
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
+const { twilioAccountSid, twilioAuthToken, emailAddress, emailPass, twilioPhoneNumber } = require('../config/config');
 
 const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
+  twilioAccountSid,
+  twilioAuthToken
 );
 
 const emailTransporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: emailAddress,
+    pass: emailPass
   }
 });
 
@@ -24,12 +25,12 @@ const sendOTP = async (contact, otp, type) => {
     if (type === 'phone') {
       await twilioClient.messages.create({
         body: `Your verification code is: ${otp}`,
-        from: process.env.TWILIO_PHONE_NUMBER,
+        from: twilioPhoneNumber,
         to: contact
       });
     } else if (type === 'email') {
       await emailTransporter.sendMail({
-        from: process.env.EMAIL_USER,
+        from: emailAddress,
         to: contact,
         subject: 'Verification Code',
         html: `
