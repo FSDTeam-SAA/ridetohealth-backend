@@ -204,6 +204,42 @@ class AuthController {
     }
   }
 
+    async changePassword(req, res) {
+
+    const {userId: id} = req.user;
+
+    console.log(req.user);
+
+    try {
+      const { currentPassword, newPassword } = req.body;
+
+      const user = await User.findById(id).select('+password');
+
+      if (!user || !(await user.comparePassword(currentPassword))) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+
+      user.password = newPassword;
+      await user.save();
+
+      res.json({
+        success: true,
+        message: 'Password changed successfully'
+      });
+
+    } catch (error) {
+      logger.error('Change password error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+
   async requestPasswordReset(req, res) {
     try {
       const { emailOrPhone } = req.body;
