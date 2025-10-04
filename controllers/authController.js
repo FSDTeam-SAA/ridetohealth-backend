@@ -56,9 +56,22 @@ class AuthController {
       //   expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
       // });
 
+      // Generate and send OTP for email verification
+      const otp = generateOTP();
+      await sendOTP(email, otp, 'email');
+
+      // Save OTP to database
+      await OTP.create({
+        userId: user._id,
+        otp,
+        type: 'email_verification',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+      });
+
+
       res.status(201).json({
         success: true,
-        message: 'User registered successfully. Please verify your phone number.',
+        message: 'User registered successfully. Please verify your email.',
         data: {
           userId: user._id,
           fullName: user.fullName,
@@ -93,6 +106,13 @@ class AuthController {
       const user = await User.findOne({
         $or: [{ email: emailOrPhone }, { phoneNumber: emailOrPhone }]
       });
+
+      if (!user.isEmailVerified && !user.isPhoneVerified) {
+        return res.status(401).json({
+          success: false,
+          message: 'User is not verified'
+        });
+      }
 
       if (!user || !(await user.comparePassword(password))) {
         return res.status(401).json({
@@ -193,14 +213,16 @@ class AuthController {
 
   async verifyOTP(req, res) {
     try {
-      const { userId, otp, type } = req.body;
+      const { email, otp, type } = req.body;
 
       const otpRecord = await OTP.findOne({
-        userId,
         otp,
         type,
         expiresAt: { $gt: new Date() }
       });
+
+
+      console.log(otpRecord);
 
       if (!otpRecord) {
         return res.status(400).json({
@@ -209,7 +231,7 @@ class AuthController {
         });
       }
 
-      const user = await User.findById(userId);
+      const user = await User.findOne({ email });
       if (!user) {
         return res.status(404).json({
           success: false,
@@ -248,8 +270,6 @@ class AuthController {
   async changePassword(req, res) {
 
     const { userId: id } = req.user;
-
-    console.log(req.user);
 
     try {
       const { currentPassword, newPassword } = req.body;
@@ -327,7 +347,7 @@ class AuthController {
 
   async resetPassword(req, res) {
     try {
-      const { emailOrPhone, otp, newPassword } = req.body;
+      const { emailOrPhone, newPassword } = req.body;
 
       const user = await User.findOne({
         $or: [
@@ -336,6 +356,7 @@ class AuthController {
         ]
       });
 
+
       if (!user) {
         return res.status(404).json({
           success: false,
@@ -343,23 +364,10 @@ class AuthController {
         });
       }
 
-      const otpRecord = await OTP.findOne({
-        userId: user._id,
-        otp,
-        type: 'password_reset',
-        expiresAt: { $gt: new Date() }
-      });
 
-      if (!otpRecord) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid or expired OTP'
-        });
-      }
 
       user.password = newPassword;
       await user.save();
-      await OTP.deleteOne({ _id: otpRecord._id });
 
       res.json({
         success: true,
