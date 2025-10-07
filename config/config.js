@@ -7,10 +7,10 @@ export const mongoURI = process.env.MONGODB_URI;
 export const env = process.env.NODE_ENV || 'development';
 
 // JWT config 
-export const accessTokenSecrete = process.env.ACCESS_TOKEN_SECRET;
+export const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;   // ✅ fixed
 export const accessTokenExpires = process.env.ACCESS_TOKEN_EXPIRES || '7d';
+export const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET; // ✅ fixed
 export const refreshTokenExpires = process.env.REFRESH_TOKEN_EXPIRES || '10d';
-export const refreshTokenSecrete = process.env.REFRESH_TOKEN_SECRET;
 export const salt = process.env.SALT;
 
 // EMAIL config 
@@ -26,10 +26,11 @@ export const cloudinaryCloudName = process.env.CLOUDINARY_CLOUD_NAME;
 export const cloudinaryApiKey = process.env.CLOUDINARY_API_KEY;
 export const cloudinarySecret = process.env.CLOUDINARY_API_SECRET;
 
+// Client URL
+export const clientUrl = process.env.CLIENT_URL;
 
-export const clientUrl= process.env.CLIENT_URL;
-
-export const stripeSecret= process.env.STRIPE_SECRET_KEY;
+// Stripe
+export const stripeSecret = process.env.STRIPE_SECRET_KEY;
 
 // Twilio config
 export const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;

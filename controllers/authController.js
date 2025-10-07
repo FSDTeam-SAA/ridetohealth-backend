@@ -5,7 +5,7 @@ const OTP = require('../models/OTP');
 const { generateOTP, sendOTP } = require('../services/otpService');
 const { validateRegister, validateLogin } = require('../validators/authValidator');
 const logger = require('../utils/logger');
-const { refreshTokenSecrete, refreshTokenExpires } = require('../config/config');
+const { refreshTokenSecret, refreshTokenExpires } = require('../config/config');
 
 
 class AuthController {
@@ -44,17 +44,6 @@ class AuthController {
 
       await user.save();
 
-      // Generate and send OTP for phone verification
-      // const otp = generateOTP();
-      // await sendOTP(phoneNumber, otp, 'phone');
-
-      // // Save OTP to database
-      // await OTP.create({
-      //   userId: user._id,
-      //   otp,
-      //   type: 'phone_verification',
-      //   expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
-      // });
 
       // Generate and send OTP for email verification
       const otp = generateOTP();
@@ -182,7 +171,7 @@ class AuthController {
 
       if (!user) throw new Error('Invalid refresh token');
 
-      const decoded = jwt.verify(refreshToken, refreshTokenSecrete);
+      const decoded = jwt.verify(refreshToken, refreshTokenSecret);
 
       if (!decoded || decoded._id !== user._id.toString()) throw new Error('Invalid refresh token')
 

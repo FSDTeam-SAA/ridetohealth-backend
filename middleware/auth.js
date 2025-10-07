@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Driver = require('../models/Driver');
 const logger = require('../utils/logger');
-const {  accessTokenSecrete } = require('../config/config');
+const {  accessTokenSecret } = require('../config/config');
 
 const authenticateToken = async (req, res, next) => {
   try {
@@ -16,7 +16,7 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, accessTokenSecrete);
+    const decoded = jwt.verify(token, accessTokenSecret);
 
     const user = await User.findById(decoded._id).select('-password');
 

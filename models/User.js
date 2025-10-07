@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { refreshTokenSecrete, refreshTokenExpires, accessTokenSecrete, accessTokenExpires } = require('../config/config');
+const { refreshTokenSecret, refreshTokenExpires, accessTokenSecret, accessTokenExpires } = require('../config/config');
 const jwt = require('jsonwebtoken');
 
 const userSchema = new mongoose.Schema({
@@ -144,11 +144,11 @@ userSchema.pre('save', async function(next) {
 });
 
 userSchema.methods.generateRefreshToken = function (payload) {
-  return jwt.sign(payload, refreshTokenSecrete, { expiresIn: refreshTokenExpires });
+  return jwt.sign(payload, refreshTokenSecret, { expiresIn: refreshTokenExpires });
 };
 
 userSchema.methods.generateAccessToken = function (payload) {
-  return jwt.sign(payload, accessTokenSecrete, { expiresIn: accessTokenExpires });
+  return jwt.sign(payload, accessTokenSecret, { expiresIn: accessTokenExpires });
 };
 
 userSchema.methods.comparePassword = async function(candidatePassword) {
