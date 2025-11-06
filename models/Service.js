@@ -6,10 +6,7 @@ const serviceSchema = new mongoose.Schema({
     required: true
   },
   description: String,
-  category: {
-    type: String,
-    required: true
-  },
+  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true},
   icon: String,
   baseFare: {
     type: Number,

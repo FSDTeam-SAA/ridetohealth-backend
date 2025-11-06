@@ -424,14 +424,21 @@ class AdminController {
     try {
       const { categoryId } = req.params;
       const category = await Category.findById(categoryId);
-      if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
-
-      res.json({ success: true, data: category });
+      if (!category)
+        return res.status(404).json({ success: false, message: 'Category not found' });
+      
+      const services = await Service.find({ category: category._id });
+      const categoryWithServices = {
+        ...category.toObject(),
+        services,
+      };
+      res.status(200).json({ success: true, data: categoryWithServices });
     } catch (error) {
       logger.error('Get category by ID error:', error);
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
+
 
   async updateCategory(req, res) {
     try {
