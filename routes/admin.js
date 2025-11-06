@@ -5,6 +5,11 @@ const { uploadMultiple } = require('../middleware/upload');
 const router = express.Router();
 
 router.use(authenticateToken);
+router.get('/categories', adminController.getAllCategories);
+router.get('/categories/:categoryId', adminController.getCategoryById);
+
+
+
 router.use(requireRole('admin'));
 
 const uploadFields = uploadMultiple([
@@ -27,8 +32,7 @@ router.delete('/services/:serviceId', adminController.deleteService);
 
 // Category Management
 router.post('/categories', uploadFields, adminController.createCategory);
-router.get('/categories', adminController.getAllCategories);
-router.get('/categories/:categoryId', adminController.getCategoryById);
+
 router.put('/categories/:categoryId', uploadFields, adminController.updateCategory);
 router.delete('/categories/:categoryId', adminController.deleteCategory);
 
