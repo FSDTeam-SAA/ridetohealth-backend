@@ -8,7 +8,6 @@ const serviceSchema = new mongoose.Schema({
   description: String,
   category: {
     type: String,
-    enum: ['car', 'bike', 'cng', 'bus'],
     required: true
   },
   icon: String,

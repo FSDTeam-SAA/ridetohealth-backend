@@ -7,8 +7,12 @@ const Report = require('../models/Report');
 const Notification = require('../models/Notification');
 const { sendNotification } = require('../services/notificationService');
 const logger = require('../utils/logger');
+const Category = require('../models/Category');
+const { uploadToCloudinary } = require('../services/cloudinaryService');
+
 
 class AdminController {
+  // === Dashboard ===
   async getDashboardStats(req, res) {
     try {
       const [
@@ -34,7 +38,6 @@ class AdminController {
 
       const revenue = totalRevenue.length > 0 ? totalRevenue[0].total : 0;
 
-      // Get monthly stats
       const monthlyStats = await Ride.aggregate([
         {
           $match: {
@@ -43,10 +46,7 @@ class AdminController {
         },
         {
           $group: {
-            _id: {
-              year: { $year: '$createdAt' },
-              month: { $month: '$createdAt' }
-            },
+            _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
             rides: { $sum: 1 },
             revenue: { $sum: '$commission.amount' }
           }
@@ -71,17 +71,14 @@ class AdminController {
       });
     } catch (error) {
       logger.error('Get dashboard stats error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
+  // === Driver Management ===
   async getPendingDrivers(req, res) {
     try {
       const { page = 1, limit = 10 } = req.query;
-
       const drivers = await Driver.find({ status: 'pending' })
         .populate('userId', 'fullName email phoneNumber')
         .sort({ createdAt: -1 })
@@ -94,19 +91,12 @@ class AdminController {
         success: true,
         data: {
           drivers,
-          pagination: {
-            current: page,
-            pages: Math.ceil(total / limit),
-            total
-          }
+          pagination: { current: +page, pages: Math.ceil(total / limit), total }
         }
       });
     } catch (error) {
       logger.error('Get pending drivers error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
@@ -122,15 +112,11 @@ class AdminController {
       ).populate('userId');
 
       if (!driver) {
-        return res.status(404).json({
-          success: false,
-          message: 'Driver not found'
-        });
+        return res.status(404).json({ success: false, message: 'Driver not found' });
       }
 
-      // Send notification to driver
-      const message = status === 'approved' 
-        ? 'Your driver application has been approved!' 
+      const message = status === 'approved'
+        ? 'Your driver application has been approved!'
         : `Your driver application has been rejected. Reason: ${rejectionReason}`;
 
       await sendNotification(driver.userId._id, {
@@ -146,10 +132,7 @@ class AdminController {
       });
     } catch (error) {
       logger.error('Approve driver error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
@@ -165,12 +148,7 @@ class AdminController {
         driverId,
         {
           $push: {
-            suspensions: {
-              reason,
-              duration,
-              endDate,
-              isActive: true
-            }
+            suspensions: { reason, duration, endDate, isActive: true }
           },
           isOnline: false,
           isAvailable: false
@@ -179,13 +157,9 @@ class AdminController {
       ).populate('userId');
 
       if (!driver) {
-        return res.status(404).json({
-          success: false,
-          message: 'Driver not found'
-        });
+        return res.status(404).json({ success: false, message: 'Driver not found' });
       }
 
-      // Send notification to driver
       await sendNotification(driver.userId._id, {
         title: 'Account Suspended',
         message: `Your account has been suspended for ${duration} days. Reason: ${reason}`,
@@ -199,112 +173,60 @@ class AdminController {
       });
     } catch (error) {
       logger.error('Suspend driver error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
+  // === Service Management ===
   async createService(req, res) {
     try {
-      const serviceData = req.body;
-      const service = new Service(serviceData);
+      const service = new Service(req.body);
       await service.save();
-
-      res.status(201).json({
-        success: true,
-        message: 'Service created successfully',
-        data: service
-      });
+      res.status(201).json({ success: true, message: 'Service created successfully', data: service });
     } catch (error) {
       logger.error('Create service error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
   async updateService(req, res) {
     try {
       const { serviceId } = req.params;
-      const updates = req.body;
-
-      const service = await Service.findByIdAndUpdate(
-        serviceId,
-        updates,
-        { new: true, runValidators: true }
-      );
-
-      if (!service) {
-        return res.status(404).json({
-          success: false,
-          message: 'Service not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'Service updated successfully',
-        data: service
-      });
+      const service = await Service.findByIdAndUpdate(serviceId, req.body, { new: true, runValidators: true });
+      if (!service) return res.status(404).json({ success: false, message: 'Service not found' });
+      res.json({ success: true, message: 'Service updated successfully', data: service });
     } catch (error) {
       logger.error('Update service error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
   async deleteService(req, res) {
     try {
       const { serviceId } = req.params;
-
       await Service.findByIdAndUpdate(serviceId, { isActive: false });
-
-      res.json({
-        success: true,
-        message: 'Service deleted successfully'
-      });
+      res.json({ success: true, message: 'Service deleted successfully' });
     } catch (error) {
       logger.error('Delete service error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
+  // === Promo Code Management ===
   async createPromoCode(req, res) {
     try {
-      const promoData = {
-        ...req.body,
-        createdBy: req.user.userId
-      };
-
-      const promo = new PromoCode(promoData);
+      const promo = new PromoCode({ ...req.body, createdBy: req.user.userId });
       await promo.save();
-
-      res.status(201).json({
-        success: true,
-        message: 'Promo code created successfully',
-        data: promo
-      });
+      res.status(201).json({ success: true, message: 'Promo code created successfully', data: promo });
     } catch (error) {
       logger.error('Create promo code error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
   async getPromoCodes(req, res) {
     try {
       const { page = 1, limit = 10 } = req.query;
-
       const promoCodes = await PromoCode.find()
         .populate('createdBy', 'fullName')
         .sort({ createdAt: -1 })
@@ -317,26 +239,19 @@ class AdminController {
         success: true,
         data: {
           promoCodes,
-          pagination: {
-            current: page,
-            pages: Math.ceil(total / limit),
-            total
-          }
+          pagination: { current: +page, pages: Math.ceil(total / limit), total }
         }
       });
     } catch (error) {
       logger.error('Get promo codes error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
+  // === Reports ===
   async getReports(req, res) {
     try {
       const { page = 1, limit = 10, status } = req.query;
-
       const filter = status ? { status } : {};
 
       const reports = await Report.find(filter)
@@ -353,19 +268,12 @@ class AdminController {
         success: true,
         data: {
           reports,
-          pagination: {
-            current: page,
-            pages: Math.ceil(total / limit),
-            total
-          }
+          pagination: { current: +page, pages: Math.ceil(total / limit), total }
         }
       });
     } catch (error) {
       logger.error('Get reports error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
@@ -385,31 +293,19 @@ class AdminController {
         { new: true }
       );
 
-      if (!report) {
-        return res.status(404).json({
-          success: false,
-          message: 'Report not found'
-        });
-      }
+      if (!report) return res.status(404).json({ success: false, message: 'Report not found' });
 
-      res.json({
-        success: true,
-        message: 'Report updated successfully',
-        data: report
-      });
+      res.json({ success: true, message: 'Report updated successfully', data: report });
     } catch (error) {
       logger.error('Update report error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
+  // === Users ===
   async getAllUsers(req, res) {
     try {
       const { page = 1, limit = 10, search, role } = req.query;
-
       const filter = {};
       if (search) {
         filter.$or = [
@@ -418,41 +314,33 @@ class AdminController {
           { phoneNumber: { $regex: search, $options: 'i' } }
         ];
       }
-      if (role) {
-        filter.role = role;
-      }
+      if (role) filter.role = role;
 
       const users = await User.find(filter)
         .select('-password')
         .sort({ createdAt: -1 })
         .limit(limit * 1)
         .skip((page - 1) * limit);
-         const total = await User.countDocuments(filter);
+
+      const total = await User.countDocuments(filter);
 
       res.json({
         success: true,
         data: {
           users,
-          pagination: {
-            current: page,
-            pages: Math.ceil(total / limit),
-            total
-          }
+          pagination: { current: +page, pages: Math.ceil(total / limit), total }
         }
       });
     } catch (error) {
       logger.error('Get all users error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
+  // === Commission ===
   async getCommissionHistory(req, res) {
     try {
       const { page = 1, limit = 10, startDate, endDate } = req.query;
-
       const filter = { status: 'completed' };
       if (startDate || endDate) {
         filter.createdAt = {};
@@ -462,14 +350,13 @@ class AdminController {
 
       const rides = await Ride.find(filter)
         .populate('customerId', 'fullName')
-        .populate('driverId')
+        .populate('driverId', 'fullName')
         .select('customerId driverId finalFare commission createdAt')
         .sort({ createdAt: -1 })
         .limit(limit * 1)
         .skip((page - 1) * limit);
 
       const total = await Ride.countDocuments(filter);
-
       const totalCommission = await Ride.aggregate([
         { $match: filter },
         { $group: { _id: null, total: { $sum: '$commission.amount' } } }
@@ -479,20 +366,108 @@ class AdminController {
         success: true,
         data: {
           rides,
-          totalCommission: totalCommission.length > 0 ? totalCommission[0].total : 0,
-          pagination: {
-            current: page,
-            pages: Math.ceil(total / limit),
-            total
-          }
+          totalCommission: totalCommission[0]?.total || 0,
+          pagination: { current: +page, pages: Math.ceil(total / limit), total }
         }
       });
     } catch (error) {
       logger.error('Get commission history error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  // === CATEGORY MANAGEMENT ===
+
+  async createCategory(req, res) {
+    try {
+      const { name } = req.body;
+      if (!req.files?.serviceImage?.[0]) {
+        return res.status(400).json({ success: false, message: 'Image is required' });
+      }
+
+      const buffer = req.files.serviceImage[0].buffer;
+      const categoryImage = await uploadToCloudinary(buffer, 'categories');
+
+      const category = await Category.create({ name, categoryImage });
+
+      res.status(201).json({ success: true, data: category });
+    } catch (error) {
+      logger.error('Create category error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  async getAllCategories(req, res) {
+    try {
+      const { page = 1, limit = 10 } = req.query;
+      const categories = await Category.find()
+        .sort({ createdAt: -1 })
+        .limit(limit * 1)
+        .skip((page - 1) * limit);
+
+      const total = await Category.countDocuments();
+
+      res.json({
+        success: true,
+        data: {
+          categories,
+          pagination: { current: +page, pages: Math.ceil(total / limit), total }
+        }
       });
+    } catch (error) {
+      logger.error('Get categories error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  async getCategoryById(req, res) {
+    try {
+      const { categoryId } = req.params;
+      const category = await Category.findById(categoryId);
+      if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
+
+      res.json({ success: true, data: category });
+    } catch (error) {
+      logger.error('Get category by ID error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  async updateCategory(req, res) {
+    try {
+      const { categoryId } = req.params;
+      const { name } = req.body;
+      let categoryImage;
+
+      if (req.files?.serviceImage?.[0]) {
+        const buffer = req.files.serviceImage[0].buffer;
+        categoryImage = await uploadToCloudinary(buffer, 'categories');
+      }
+
+      const updatedData = { name };
+      if (categoryImage) updatedData.categoryImage = categoryImage;
+
+      const category = await Category.findByIdAndUpdate(categoryId, updatedData, { new: true });
+
+      if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
+
+      res.json({ success: true, data: category });
+    } catch (error) {
+      logger.error('Update category error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  async deleteCategory(req, res) {
+    try {
+      const { categoryId } = req.params;
+      const category = await Category.findByIdAndDelete(categoryId);
+      if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
+
+      res.json({ success: true, message: 'Category deleted successfully' });
+    } catch (error) {
+      logger.error('Delete category error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 }

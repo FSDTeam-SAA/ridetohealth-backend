@@ -210,9 +210,6 @@ class AuthController {
         expiresAt: { $gt: new Date() }
       });
 
-
-      console.log(otpRecord);
-
       if (!otpRecord) {
         return res.status(400).json({
           success: false,
