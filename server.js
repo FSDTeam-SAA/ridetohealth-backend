@@ -31,25 +31,20 @@ const io = socketIo(server, {
   }
 });
 
-// Middleware
 app.use(helmet());
 app.use(compression());
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
-// Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100
 });
 app.use('/api/', limiter);
-
-// Socket.IO
 socketHandler(io);
 app.set('io', io);
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/ride', rideRoutes);
@@ -59,14 +54,10 @@ app.use('/api/driver', driverRoutes);
 app.use('/api/service', serviceRoutes);
 app.use('/api/notification', notificationRoutes);
 
-// Error handling
 app.use(errorHandler);
-
-// Database connection
 mongoose.connect(mongoURI)
-.then(() => logger.info('Connected to MongoDB'))
-.catch(err => logger.error('MongoDB connection error:', err));
-
+  .then(() => logger.info('Connected to MongoDB'))
+  .catch(err => logger.error('MongoDB connection error:', err));
 const PORT = port || 5000;
 server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
