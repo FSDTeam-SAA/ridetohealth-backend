@@ -61,8 +61,7 @@ const userSchema = new mongoose.Schema({
     coordinates: [Number],
     type: {
       type: String,
-      enum: ['home', 'work', 'other'],
-      default: 'other'
+      default: ''
     }
   }],
   wallet: {
