@@ -5,6 +5,10 @@ const Ride = require('../models/Ride');
 const PromoCode = require('../models/PromoCode');
 const logger = require('../utils/logger');
 
+// import Stripe from 'stripe';
+
+// export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 class PaymentController {
   async addWalletBalance(req, res) {
     try {
@@ -241,18 +245,19 @@ class PaymentController {
     }
   }
 
-}
+
 
   // Create Payment Intent with Split Payment (Admin 5%, Driver 95%)
-  exports.createRidePayment = async (req, res) => {
+  async createRidePayment (req, res){
     try {
+      
+      const rideId = req.user.userId;
       const { 
         amount, // Total amount in cents (e.g., 10000 = $100.00)
         currency = 'usd',
         stripeCustomerId, // Stripe customer ID of the rider
         stripeDriverId, // Driver's Stripe Connect Account ID
-        rideId,
-        riderId
+        driverId
       } = req.body;
 
       // Calculate split amounts
@@ -264,30 +269,30 @@ class PaymentController {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: totalAmount,
         currency: currency,
-        customer: customerId,
+        customer: stripeCustomerId,
         payment_method_types: ['card'],
         application_fee_amount: adminFee, // Admin keeps 5%
         transfer_data: {
-          destination: driverConnectAccountId, // Driver receives 95%
+          destination: stripeDriverId, // Driver receives 95%
         },
         metadata: {
           rideId: rideId,
-          riderId: riderId,
+          riderId: driverId,
           adminFee: adminFee,
           driverAmount: driverAmount
         }
       });
 
       // TODO: Save payment info to database
-      // await Payment.create({
-      //   rideId,
-      //   riderId,
-      //   amount: totalAmount,
-      //   adminFee,
-      //   driverAmount,
-      //   paymentIntentId: paymentIntent.id,
-      //   status: 'pending'
-      // });
+      const payment = await Payment.create({
+        rideId,
+        driverId,
+        amount: totalAmount,
+        adminFee,
+        driverAmount,
+        paymentIntentId: paymentIntent.id,
+        status: 'pending'
+      });
 
       res.json({
         success: true,
@@ -297,7 +302,8 @@ class PaymentController {
           total: totalAmount / 100,
           adminFee: adminFee / 100,
           driverAmount: driverAmount / 100
-        }
+        },
+        payment
       });
     } catch (error) {
       res.status(500).json({ 
@@ -308,7 +314,7 @@ class PaymentController {
   };
 
   // Confirm Payment
-  exports.confirmPayment = async (req, res) => {
+  async  confirmPayment (req, res) {
     try {
       const { paymentIntentId, paymentMethodId } = req.body;
 
@@ -330,7 +336,7 @@ class PaymentController {
   };
 
   // Get Payment Details
-  exports.getPaymentDetails = async (req, res) => {
+   async getPaymentDetails (req, res) {
     try {
       const { paymentIntentId } = req.params;
 
@@ -355,7 +361,7 @@ class PaymentController {
   };
 
   // Refund Payment
-  exports.refundPayment = async (req, res) => {
+  async refundPayment (req, res){
     try {
       const { paymentIntentId, amount, reason } = req.body;
 
@@ -382,5 +388,6 @@ class PaymentController {
       });
     }
   };
+}
 
 module.exports = new PaymentController();
