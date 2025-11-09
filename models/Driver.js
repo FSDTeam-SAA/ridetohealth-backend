@@ -141,6 +141,9 @@ const driverSchema = new mongoose.Schema({
     nidExpiry: Date,
     vehicleRegistrationExpiry: Date
   },
+  stripeDriverId: {
+    type:String
+  },
   createdAt: {
     type: Date,
     default: Date.now

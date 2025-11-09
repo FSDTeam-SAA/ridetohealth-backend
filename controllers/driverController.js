@@ -425,6 +425,98 @@ async updateProfile(req, res) {
       });
     }
   }
+
+ async createDriverStripeAccount (req, res){
+    try {
+      const { driverId, email } = req.body;
+
+      // Create a Stripe Connect Express account
+      const account = await stripe.accounts.create({
+        type: 'express',
+        country: 'US', // Change based on your country
+        email: email,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+      });
+
+      // Save account.id to your driver database
+      await Driver.findByIdAndUpdate(driverId, { 
+        stripeAccountId: account.id 
+      });
+
+      res.json({
+        success: true,
+        accountId: account.id,
+        message: 'Stripe Connect account created'
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  };
+
+/**
+ * Step 2: Create Account Link for Driver Onboarding
+ * Driver needs to complete KYC and connect their bank account
+ */
+async createAccountLink (req, res) {
+    try {
+      const { accountId } = req.body;
+
+      const accountLink = await stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: `${process.env.BASE_URL}/driver/onboarding/refresh`,
+        return_url: `${process.env.BASE_URL}/driver/onboarding/success`,
+        type: 'account_onboarding',
+      });
+
+      res.json({
+        success: true,
+        url: accountLink.url
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  };
+
+/**
+ * Step 3: Check if driver account is fully verified
+ */
+ async checkDriverAccountStatus (req, res) {
+    try {
+      const { accountId } = req.params;
+
+      const account = await stripe.accounts.retrieve(accountId);
+
+      const isVerified = account.charges_enabled && account.payouts_enabled;
+
+      // Update driver database
+      // await Driver.findOneAndUpdate(
+      //   { stripeConnectAccountId: accountId },
+      //   { isStripeVerified: isVerified }
+      // );
+
+      res.json({
+        success: true,
+        isVerified: isVerified,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        detailsSubmitted: account.details_submitted
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  };
 }
 
 module.exports = new DriverController();
