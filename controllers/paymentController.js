@@ -240,6 +240,147 @@ class PaymentController {
       });
     }
   }
+
 }
+
+  // Create Payment Intent with Split Payment (Admin 5%, Driver 95%)
+  exports.createRidePayment = async (req, res) => {
+    try {
+      const { 
+        amount, // Total amount in cents (e.g., 10000 = $100.00)
+        currency = 'usd',
+        stripeCustomerId, // Stripe customer ID of the rider
+        stripeDriverId, // Driver's Stripe Connect Account ID
+        rideId,
+        riderId
+      } = req.body;
+
+      // Calculate split amounts
+      const totalAmount = amount;
+      const adminFee = Math.round(totalAmount * 0.05); // 5%
+      const driverAmount = totalAmount - adminFee; // 95%
+
+      // Create Payment Intent
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: totalAmount,
+        currency: currency,
+        customer: customerId,
+        payment_method_types: ['card'],
+        application_fee_amount: adminFee, // Admin keeps 5%
+        transfer_data: {
+          destination: driverConnectAccountId, // Driver receives 95%
+        },
+        metadata: {
+          rideId: rideId,
+          riderId: riderId,
+          adminFee: adminFee,
+          driverAmount: driverAmount
+        }
+      });
+
+      // TODO: Save payment info to database
+      // await Payment.create({
+      //   rideId,
+      //   riderId,
+      //   amount: totalAmount,
+      //   adminFee,
+      //   driverAmount,
+      //   paymentIntentId: paymentIntent.id,
+      //   status: 'pending'
+      // });
+
+      res.json({
+        success: true,
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        breakdown: {
+          total: totalAmount / 100,
+          adminFee: adminFee / 100,
+          driverAmount: driverAmount / 100
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  };
+
+  // Confirm Payment
+  exports.confirmPayment = async (req, res) => {
+    try {
+      const { paymentIntentId, paymentMethodId } = req.body;
+
+      const paymentIntent = await stripe.paymentIntents.confirm(
+        paymentIntentId,
+        { payment_method: paymentMethodId }
+      );
+
+      res.json({
+        success: true,
+        status: paymentIntent.status
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  };
+
+  // Get Payment Details
+  exports.getPaymentDetails = async (req, res) => {
+    try {
+      const { paymentIntentId } = req.params;
+
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      res.json({
+        success: true,
+        payment: {
+          id: paymentIntent.id,
+          amount: paymentIntent.amount / 100,
+          status: paymentIntent.status,
+          created: new Date(paymentIntent.created * 1000),
+          metadata: paymentIntent.metadata
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  };
+
+  // Refund Payment
+  exports.refundPayment = async (req, res) => {
+    try {
+      const { paymentIntentId, amount, reason } = req.body;
+
+      const refund = await stripe.refunds.create({
+        payment_intent: paymentIntentId,
+        amount: amount,
+        reason: reason || 'requested_by_customer',
+        reverse_transfer: true, // Reverses transfer to driver
+        refund_application_fee: true // Refunds admin fee
+      });
+
+      res.json({
+        success: true,
+        refund: {
+          id: refund.id,
+          amount: refund.amount / 100,
+          status: refund.status
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  };
 
 module.exports = new PaymentController();

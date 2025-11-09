@@ -11,6 +11,11 @@ const rideSchema = new mongoose.Schema({
     ref: 'Driver',
     default: null
   },
+  stripeCustomerId: {
+    type:String,
+    ref:"Ride",
+    default: null
+  },
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service',
