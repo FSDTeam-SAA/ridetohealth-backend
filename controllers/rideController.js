@@ -86,6 +86,8 @@ class RideController {
 
       await ride.save();
 
+      console.log("riders: ", ride);
+
       // Find nearby available drivers
       const nearbyDrivers = await Driver.find({
         serviceTypes: serviceId,
@@ -98,10 +100,11 @@ class RideController {
               type: 'Point',
               coordinates: pickupLocation.coordinates
             },
-            $maxDistance: 5000 // 5km radius
+            $maxDistance: 500000 // 5km radius
           }
         }
       }).populate('userId', 'fullName phoneNumber');
+      console.log("drivers: ", nearbyDrivers)
 
       if (nearbyDrivers.length === 0) {
         await Ride.findByIdAndDelete(ride._id);

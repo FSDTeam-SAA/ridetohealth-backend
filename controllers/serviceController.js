@@ -3,18 +3,44 @@ const Driver = require('../models/Driver');
 const logger = require('../utils/logger');
 
 class ServiceController {
-  async getAllServices(req, res) {
+ async getAllServices(req, res) {
     try {
-      const services = await Service.find({ isActive: true });
+      const { page = 1, limit = 10, search = "" } = req.query;
+
+      // Convert query params to numbers
+      const pageNum = parseInt(page, 10);
+      const limitNum = parseInt(limit, 10);
+
+      // Build search condition using regex
+      const searchCondition = {
+        isActive: true,
+        ...(search && {
+          name: { $regex: search, $options: "i" } // case-insensitive search
+        })
+      };
+
+      // Fetch total count for pagination info
+      const total = await Service.countDocuments(searchCondition);
+
+      // Fetch paginated and filtered services
+      const services = await Service.find(searchCondition)
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum)
+        .sort({ createdAt: -1 }); // optional: latest first
+
+      // Response
       res.json({
         success: true,
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
+        totalItems: total,
         data: services
       });
     } catch (error) {
-      logger.error('Get all services error:', error);
+      logger.error("Get all services error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error"
       });
     }
   }
