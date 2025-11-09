@@ -115,9 +115,26 @@ class UserController {
 
   async addSavedPlace(req, res) {
     try {
+      
       const { name, address, latitude, longitude, type } = req.body;
 
       const user = await User.findById(req.user.userId);
+
+     if (
+      user.savedPlaces &&
+      user.savedPlaces.some(
+        (place) =>
+          place.address &&
+          place.address.trim().toLowerCase() === address.trim().toLowerCase()
+      )
+    ) {
+      return res.json({
+        success: false,
+        message: "This place is already saved"
+      });
+    }
+
+
       user.savedPlaces.push({
         name,
         address,
@@ -143,6 +160,7 @@ class UserController {
 
   async getSavedPlaces(req, res) {
     try {
+      console.log(req.user.userId);
       const user = await User.findById(req.user.userId).select('savedPlaces');
       res.json({
         success: true,
