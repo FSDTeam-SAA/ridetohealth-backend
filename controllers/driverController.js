@@ -299,6 +299,8 @@ async updateProfile(req, res) {
       const userId = req.user.userId;
       const driver = await Driver.findOne({ userId }).select('earnings withdrawals');
 
+      console.log(driver);
+
       if (!driver) {
         return res.status(404).json({
           success: false,

@@ -2,6 +2,7 @@ const { stripeSecret, clientUrl } = require('../config/config');
 const stripe = require('stripe')(stripeSecret);
 const User = require('../models/User');
 const Ride = require('../models/Ride');
+const Payment = require('../models/Payment');
 const PromoCode = require('../models/PromoCode');
 const logger = require('../utils/logger');
 
@@ -314,7 +315,7 @@ class PaymentController {
   };
 
   // Confirm Payment
-  async  confirmPayment (req, res) {
+  async confirmPayment (req, res) {
     try {
       const { paymentIntentId, paymentMethodId } = req.body;
 

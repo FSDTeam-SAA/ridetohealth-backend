@@ -18,5 +18,6 @@ router.post('/payment-methods', userController.addPaymentMethod);
 router.get('/payment-methods', userController.getPaymentMethods);
 router.delete('/payment-methods/:methodId', userController.deletePaymentMethod);
 router.put('/notification-settings', userController.updateNotificationSettings);
+router.get('/find-rider', userController.getRiderByDestination);
 
 module.exports = router;

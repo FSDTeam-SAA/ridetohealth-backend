@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Ride = require('../models/Ride');
+const Driver = require('../models/Driver');
 const { uploadToCloudinary } = require('../services/cloudinaryService');
 const logger = require('../utils/logger');
 
@@ -29,21 +30,25 @@ class UserController {
 
   async updateProfile(req, res) {
     try {
-      const updates = req.body;
-      const allowedUpdates = ['fullName', 'email', 'phoneNumber'];
-      const filteredUpdates = {};
+      const userId = req.user.userId;
+      const { fullName, email, phoneNumber } = req.body;
 
-      allowedUpdates.forEach(key => {
-        if (updates[key] !== undefined) {
-          filteredUpdates[key] = updates[key];
-        }
-      });
+      // Find user first
+      const user = await User.findById(userId);
+      // console.log(user);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
 
-      const user = await User.findByIdAndUpdate(
-        req.user.userId,
-        filteredUpdates,
-        { new: true, runValidators: true }
-      ).select('-password');
+      // Update allowed fields
+      if (fullName) user.fullName = fullName;
+      if (email) user.email = email;
+      if (phoneNumber) user.phoneNumber = phoneNumber;
+
+      await user.save();
 
       res.json({
         success: true,
@@ -51,13 +56,14 @@ class UserController {
         data: user
       });
     } catch (error) {
-      logger.error('Update profile error:', error);
+      console.error('Update profile error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error'
       });
     }
   }
+
 
   async uploadProfileImage(req, res) {
     try {
@@ -329,6 +335,42 @@ class UserController {
         message: 'Internal server error'
       });
     }
+  }
+
+  async getRiderByDestination(req, res) {
+
+    try {
+      const { latitude, longitude } = req.query;
+
+      if (!latitude || !longitude) {
+        return res.status(400).json({
+          success: false,
+          message: 'Latitude and longitude are required'
+        });
+      }
+
+      const drivers = await Driver.find({
+        currentLocation: {
+          $near: {
+            $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+            $maxDistance: 10000 // 10 km
+          }
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Nearby drivers found',
+        data: drivers
+      });
+    } catch (error) {
+      console.error('Get nearby drivers error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+
   }
 }
 
