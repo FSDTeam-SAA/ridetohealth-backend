@@ -112,6 +112,9 @@ const rideSchema = new mongoose.Schema({
       comment: String
     }
   },
+  reviews:{
+    type:String
+  },
   route: [{
     latitude: Number,
     longitude: Number,

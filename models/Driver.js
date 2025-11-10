@@ -53,6 +53,17 @@ const driverSchema = new mongoose.Schema({
     image: String,
     registrationDocument: String
   },
+  insuranceInformation:{
+    insuranceProvider:{
+      type:String
+    },
+    policyNumber:{
+      type:String
+    },
+    expiryDate:{
+      type:String
+    }
+  },
   serviceTypes: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service'
@@ -143,6 +154,29 @@ const driverSchema = new mongoose.Schema({
   },
   stripeDriverId: {
     type:String
+  },
+  street_address:{
+    type:String
+  },
+  city:{
+    type:String,
+  },
+  state:{
+    type:String
+  },
+  zipcode:{
+    type:String
+  },
+  date_of_birth:{
+    type:String,
+  },
+  emergency_contact:{
+    name:{
+      type:String
+    },
+    phoneNumber:{
+      type:String
+    }
   },
   createdAt: {
     type: Date,

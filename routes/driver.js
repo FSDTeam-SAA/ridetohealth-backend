@@ -22,5 +22,7 @@ router.get('/trip-history', driverController.getTripHistory);
 router.get('/earnings', driverController.getEarnings);
 router.post('/withdrawal', driverController.requestWithdrawal);
 router.get('/reviews', driverController.getReviews);
+router.get('/get-vehicle', driverController.getVehicleInfo);
+router.get('/get-login-history', driverController.loginHistory);
 
 module.exports = router;
