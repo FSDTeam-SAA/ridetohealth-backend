@@ -12,6 +12,10 @@ const serviceSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  driverId: {
+    type:String,
+    required: true
+  },
   perKmRate: {
     type: Number,
     required: true

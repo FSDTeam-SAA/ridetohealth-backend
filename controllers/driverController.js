@@ -7,115 +7,121 @@ const  Stripe =  require( 'stripe' );
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 class DriverController {
-async register(req, res) {
-  try {
-    const {
-      licenseNumber,
-      nidNumber,
-      vehicle: vehicleString,
-      serviceTypes
-    } = req.body;
+  async register(req, res) {
+    try {
+      const {
+        licenseNumber,
+        nidNumber,
+        vehicle: vehicleString,
+        serviceTypes,
+        insuranceInformation
+      } = req.body;
 
-    const userId = req.user.userId;
+      const userId = req.user.userId;
+      console.log(insuranceInformation);
 
-    // Check if driver already exists
-    const existingDriver = await Driver.findOne({ userId });
-    if (existingDriver) {
-      return res.status(400).json({
-        success: false,
-        message: 'Driver profile already exists'
-      });
-    }
-
-    // Check for uploaded files
-    if (!req.files || !req.files.license || !req.files.nid || !req.files.selfie) {
-      return res.status(400).json({
-        success: false,
-        message: 'All required documents must be uploaded'
-      });
-    }
-
-    const vehicle = JSON.parse( vehicleString);
-
-    // Validate vehicle object
-    if (
-      !vehicle ||
-      !vehicle.color ||
-      !vehicle.model ||
-      !vehicle.type ||
-      !vehicle.plateNumber ||
-      !vehicle.year
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: 'All vehicle fields (color, model, type, plateNumber, year) are required'
-      });
-    }
-
-    // Parse serviceTypes if sent as string
-    let serviceTypesArray = serviceTypes;
-    if (typeof serviceTypes === 'string') {
-      try {
-        serviceTypesArray = JSON.parse(serviceTypes);
-      } catch (err) {
+      // Check if driver already exists
+      const existingDriver = await Driver.findOne({ userId });
+      if (existingDriver) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid serviceTypes format. Must be an array of ObjectIds.'
+          message: 'Driver profile already exists'
         });
       }
-    }
 
-    if (!Array.isArray(serviceTypesArray) || serviceTypesArray.length === 0) {
-      return res.status(400).json({
+      // Check for uploaded files
+      if (!req.files || !req.files.license || !req.files.nid || !req.files.selfie) {
+        return res.status(400).json({
+          success: false,
+          message: 'All required documents must be uploaded'
+        });
+      }
+
+      const vehicle = JSON.parse( vehicleString);
+      // const insurance = insuranceInformation ? JSON.parse(insuranceInformation) : {};
+
+      // Validate vehicle object
+      if (
+        !vehicle ||
+        !vehicle.color ||
+        !vehicle.model ||
+        !vehicle.type ||
+        !vehicle.plateNumber ||
+        !vehicle.year
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'All vehicle fields (color, model, type, plateNumber, year) are required'
+        });
+      }
+
+      // Parse serviceTypes if sent as string
+      let serviceTypesArray = serviceTypes;
+      if (typeof serviceTypes === 'string') {
+        try {
+          serviceTypesArray = JSON.parse(serviceTypes);
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid serviceTypes format. Must be an array of ObjectIds.'
+          });
+        }
+      }
+
+      if (!Array.isArray(serviceTypesArray) || serviceTypesArray.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one service type is required'
+        });
+      }
+
+      // Upload documents to cloudinary
+      const licenseImage = await uploadToCloudinary(req.files.license[0].buffer, 'driver_documents');
+      const nidImage = await uploadToCloudinary(req.files.nid[0].buffer, 'driver_documents');
+      const selfieImage = await uploadToCloudinary(req.files.selfie[0].buffer, 'driver_documents');
+
+      let vehicleImage = null;
+      if (req.files.vehicleImage) {
+        vehicleImage = await uploadToCloudinary(req.files.vehicleImage[0].buffer, 'vehicle_images');
+      }
+
+      // Create driver
+      const driver = new Driver({
+        userId,
+        licenseNumber,
+        licenseImage,
+        nidNumber,
+        nidImage,
+        selfieImage,
+        vehicle: {
+          ...vehicle,
+          image: vehicleImage
+        },
+        serviceTypes: serviceTypesArray,
+        insuranceInformation:insuranceInformation
+      });
+      // console.log(insurance);
+
+      await driver.save();
+
+
+      // Update user role to driver
+      await User.findByIdAndUpdate(userId, { role: 'driver' });
+
+      res.status(201).json({
+        success: true,
+        message: 'Driver registration submitted successfully. Awaiting admin approval.',
+        data: { driverId: driver._id, status: driver.status }
+      });
+
+    } catch (error) {
+      console.error('Driver registration error:', error);
+      res.status(500).json({
         success: false,
-        message: 'At least one service type is required'
+        message: 'Internal server error'
       });
     }
-
-    // Upload documents to cloudinary
-    const licenseImage = await uploadToCloudinary(req.files.license[0].buffer, 'driver_documents');
-    const nidImage = await uploadToCloudinary(req.files.nid[0].buffer, 'driver_documents');
-    const selfieImage = await uploadToCloudinary(req.files.selfie[0].buffer, 'driver_documents');
-
-    let vehicleImage = null;
-    if (req.files.vehicleImage) {
-      vehicleImage = await uploadToCloudinary(req.files.vehicleImage[0].buffer, 'vehicle_images');
-    }
-
-    // Create driver
-    const driver = new Driver({
-      userId,
-      licenseNumber,
-      licenseImage,
-      nidNumber,
-      nidImage,
-      selfieImage,
-      vehicle: {
-        ...vehicle,
-        image: vehicleImage
-      },
-      serviceTypes: serviceTypesArray
-    });
-
-    await driver.save();
-
-    // Update user role to driver
-    await User.findByIdAndUpdate(userId, { role: 'driver' });
-
-    res.status(201).json({
-      success: true,
-      message: 'Driver registration submitted successfully. Awaiting admin approval.',
-      data: { driverId: driver._id, status: driver.status }
-    });
-
-  } catch (error) {
-    console.error('Driver registration error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
   }
-}
 
 
   async getProfile(req, res) {
@@ -144,46 +150,64 @@ async register(req, res) {
       });
     }
   }
-async updateProfile(req, res) {
+ async updateProfile (req, res) {
     try {
-      const userId = req.user.userId;
-      const updates = req.body;
+      const userId = req.user.userId; // Logged-in user ID
+      const {
+        fullName,
+        phoneNumber,
+        vehicle,
+        serviceTypes,
+        street_address,
+        city,
+        state,
+        zipcode,
+        date_of_birth,
+        emergency_contact,
+      } = req.body;
 
-      const allowedUpdates = ['vehicle', 'serviceTypes'];
-      const filteredUpdates = {};
-
-      allowedUpdates.forEach(key => {
-        if (updates[key] !== undefined) {
-          filteredUpdates[key] = updates[key];
-        }
+      // ✅ Update User basic info
+      await User.findByIdAndUpdate(userId, {
+        fullName,
+        phoneNumber,
       });
 
+      // ✅ Update Driver info
       const driver = await Driver.findOneAndUpdate(
         { userId },
-        filteredUpdates,
+        {
+          vehicle,
+          serviceTypes,
+          street_address,
+          city,
+          state,
+          zipcode,
+          date_of_birth,
+          emergency_contact,
+        },
         { new: true, runValidators: true }
       );
 
       if (!driver) {
         return res.status(404).json({
           success: false,
-          message: 'Driver profile not found'
+          message: 'Driver profile not found',
         });
       }
 
       res.json({
         success: true,
         message: 'Driver profile updated successfully',
-        data: driver
+        data: driver,
       });
     } catch (error) {
-      logger.error('Update driver profile error:', error);
+      console.error('Update driver profile error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: 'Internal server error',
       });
     }
-  }
+  };
 
   async updateLocation(req, res) {
     try {
@@ -389,7 +413,7 @@ async updateProfile(req, res) {
 
       const rides = await Ride.find({
         driverId: driver._id,
-        'rating.customerToDriver.rating': { $exists: true }
+        'rating.customerToDriver.rating reviews': { $exists: true }
       })
         .populate('customerId', 'fullName profileImage')
         .select('rating.customerToDriver createdAt')
@@ -429,6 +453,65 @@ async updateProfile(req, res) {
       });
     }
   }
+
+   // Get Driver loginhistory info
+  async loginHistory(req, res) {
+    try {
+      const userId = req.user.userId;
+
+      // Fetch user by ID and select only loginHistory field
+      const user = await User.findById(userId).select('loginHistory');
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Login history fetched successfully',
+        loginHistory: user.loginHistory
+      });
+    } catch (error) {
+      console.error('Get login history error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
+
+  // Get Driver Vehicle Info
+ async getVehicleInfo(req, res) {
+    try {
+      const userId = req.user.userId;
+
+      const driver = await Driver.findOne({ userId }).select('vehicle licenseNumber licenseImage');
+
+      if (!driver) {
+        return res.status(404).json({
+          success: false,
+          message: 'Driver not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Vehicle information fetched successfully',
+        data: driver
+      });
+    } catch (error) {
+      console.error('Get vehicle info error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  }
+
 
 
   // Create Stripe Connect Account for Driver

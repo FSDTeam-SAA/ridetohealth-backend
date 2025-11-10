@@ -350,13 +350,23 @@ class UserController {
       }
 
       const drivers = await Driver.find({
+        status: 'approved',
+        isOnline: true,
+        isAvailable: true,
         currentLocation: {
           $near: {
             $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
             $maxDistance: 10000 // 10 km
           }
         }
-      });
+      }).populate('userId', 'fullName phoneNumber');
+
+      if(drivers.length === 0){
+        return res.json({
+          success: false,
+          message: "No drivers found nearby, please try another area."
+        })
+      }
 
       res.json({
         success: true,
