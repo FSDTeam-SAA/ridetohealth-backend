@@ -16,6 +16,7 @@ const adminRoutes = require('./routes/admin');
 const driverRoutes = require('./routes/driver');
 const serviceRoutes = require('./routes/service');
 const notificationRoutes = require('./routes/notification');
+const stripeRoutes = require('./routes/stripeRoutes');
 
 const socketHandler = require('./services/socketService');
 const logger = require('./utils/logger');
@@ -53,6 +54,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/driver', driverRoutes);
 app.use('/api/service', serviceRoutes);
 app.use('/api/notification', notificationRoutes);
+app.use('/api/stripe', stripeRoutes)
 
 app.use(errorHandler);
 mongoose.connect(mongoURI)

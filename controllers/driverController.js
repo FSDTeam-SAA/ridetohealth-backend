@@ -3,6 +3,8 @@ const User = require('../models/User');
 const Ride = require('../models/Ride');
 const { uploadToCloudinary } = require('../services/cloudinaryService');
 const logger = require('../utils/logger');
+const  Stripe =  require( 'stripe' );
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 class DriverController {
 async register(req, res) {
@@ -297,6 +299,8 @@ async updateProfile(req, res) {
       const userId = req.user.userId;
       const driver = await Driver.findOne({ userId }).select('earnings withdrawals');
 
+      console.log(driver);
+
       if (!driver) {
         return res.status(404).json({
           success: false,
@@ -426,14 +430,15 @@ async updateProfile(req, res) {
     }
   }
 
- async createDriverStripeAccount (req, res){
+
+  // Create Stripe Connect Account for Driver
+  async createDriverStripeAccount (req, res){
     try {
       const { driverId, email } = req.body;
 
-      // Create a Stripe Connect Express account
       const account = await stripe.accounts.create({
         type: 'express',
-        country: 'US', // Change based on your country
+        country: 'US',
         email: email,
         capabilities: {
           card_payments: { requested: true },
@@ -441,9 +446,9 @@ async updateProfile(req, res) {
         },
       });
 
-      // Save account.id to your driver database
+      // TODO: Save account.id to your driver database
       await Driver.findByIdAndUpdate(driverId, { 
-        stripeAccountId: account.id 
+        stripeDriverId: account.id 
       });
 
       res.json({
@@ -459,11 +464,8 @@ async updateProfile(req, res) {
     }
   };
 
-/**
- * Step 2: Create Account Link for Driver Onboarding
- * Driver needs to complete KYC and connect their bank account
- */
-async createAccountLink (req, res) {
+  // Create Account Link for Driver Onboarding
+   async createAccountLink (req, res) {
     try {
       const { accountId } = req.body;
 
@@ -486,10 +488,8 @@ async createAccountLink (req, res) {
     }
   };
 
-/**
- * Step 3: Check if driver account is fully verified
- */
- async checkDriverAccountStatus (req, res) {
+  // Check Driver Account Status
+   async checkDriverAccountStatus (req, res) {
     try {
       const { accountId } = req.params;
 
@@ -497,11 +497,11 @@ async createAccountLink (req, res) {
 
       const isVerified = account.charges_enabled && account.payouts_enabled;
 
-      // Update driver database
-      // await Driver.findOneAndUpdate(
-      //   { stripeConnectAccountId: accountId },
-      //   { isStripeVerified: isVerified }
-      // );
+      // TODO: Update driver database
+      await Driver.findOneAndUpdate(
+        { stripeDriverId: accountId },
+        { isStripeVerified: isVerified }
+      );
 
       res.json({
         success: true,
