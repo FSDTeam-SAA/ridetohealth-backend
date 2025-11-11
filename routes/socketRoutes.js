@@ -1,0 +1,9 @@
+const express = require('express');
+const router = express.Router();
+const socketController = require('../controllers/socketController');
+
+
+
+router.post('/ride-message', socketController.handleRideMessage);
+
+module.exports = router;
