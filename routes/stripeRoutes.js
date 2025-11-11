@@ -6,10 +6,14 @@ const driverController = require('../controllers/driverController');
 const paymentController = require('../controllers/paymentController');
 // const customerController = require('../controllers/rideController');
 const webhookController = require('../controllers/webhookController');
+const { authenticateToken } = require('../middleware/auth');
+
+router.use(authenticateToken);
 
 // ============ DRIVER ROUTES ============
 router.post('/driver/create-account', driverController.createDriverStripeAccount);
 router.post('/driver/account-link', driverController.createAccountLink);
+router.post('/driver/login-link', driverController.getStripeDashboardLink);
 router.get('/driver/account-status/:accountId', driverController.checkDriverAccountStatus);
 
 // ============ CUSTOMER ROUTES ============

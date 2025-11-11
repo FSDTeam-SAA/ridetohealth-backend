@@ -1,9 +1,9 @@
-const Driver = require('../models/Driver');
-const User = require('../models/User');
-const Ride = require('../models/Ride');
-const { uploadToCloudinary } = require('../services/cloudinaryService');
-const logger = require('../utils/logger');
-const  Stripe =  require( 'stripe' );
+const Driver = require("../models/Driver");
+const User = require("../models/User");
+const Ride = require("../models/Ride");
+const { uploadToCloudinary } = require("../services/cloudinaryService");
+const logger = require("../utils/logger");
+const Stripe = require("stripe");
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 class DriverController {
@@ -14,7 +14,7 @@ class DriverController {
         nidNumber,
         vehicle: vehicleString,
         serviceTypes,
-        insuranceInformation
+        insuranceInformation,
       } = req.body;
 
       const userId = req.user.userId;
@@ -25,19 +25,24 @@ class DriverController {
       if (existingDriver) {
         return res.status(400).json({
           success: false,
-          message: 'Driver profile already exists'
+          message: "Driver profile already exists",
         });
       }
 
       // Check for uploaded files
-      if (!req.files || !req.files.license || !req.files.nid || !req.files.selfie) {
+      if (
+        !req.files ||
+        !req.files.license ||
+        !req.files.nid ||
+        !req.files.selfie
+      ) {
         return res.status(400).json({
           success: false,
-          message: 'All required documents must be uploaded'
+          message: "All required documents must be uploaded",
         });
       }
 
-      const vehicle = JSON.parse( vehicleString);
+      const vehicle = JSON.parse(vehicleString);
       // const insurance = insuranceInformation ? JSON.parse(insuranceInformation) : {};
 
       // Validate vehicle object
@@ -51,19 +56,21 @@ class DriverController {
       ) {
         return res.status(400).json({
           success: false,
-          message: 'All vehicle fields (color, model, type, plateNumber, year) are required'
+          message:
+            "All vehicle fields (color, model, type, plateNumber, year) are required",
         });
       }
 
       // Parse serviceTypes if sent as string
       let serviceTypesArray = serviceTypes;
-      if (typeof serviceTypes === 'string') {
+      if (typeof serviceTypes === "string") {
         try {
           serviceTypesArray = JSON.parse(serviceTypes);
         } catch (err) {
           return res.status(400).json({
             success: false,
-            message: 'Invalid serviceTypes format. Must be an array of ObjectIds.'
+            message:
+              "Invalid serviceTypes format. Must be an array of ObjectIds.",
           });
         }
       }
@@ -71,18 +78,30 @@ class DriverController {
       if (!Array.isArray(serviceTypesArray) || serviceTypesArray.length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'At least one service type is required'
+          message: "At least one service type is required",
         });
       }
 
       // Upload documents to cloudinary
-      const licenseImage = await uploadToCloudinary(req.files.license[0].buffer, 'driver_documents');
-      const nidImage = await uploadToCloudinary(req.files.nid[0].buffer, 'driver_documents');
-      const selfieImage = await uploadToCloudinary(req.files.selfie[0].buffer, 'driver_documents');
+      const licenseImage = await uploadToCloudinary(
+        req.files.license[0].buffer,
+        "driver_documents"
+      );
+      const nidImage = await uploadToCloudinary(
+        req.files.nid[0].buffer,
+        "driver_documents"
+      );
+      const selfieImage = await uploadToCloudinary(
+        req.files.selfie[0].buffer,
+        "driver_documents"
+      );
 
       let vehicleImage = null;
       if (req.files.vehicleImage) {
-        vehicleImage = await uploadToCloudinary(req.files.vehicleImage[0].buffer, 'vehicle_images');
+        vehicleImage = await uploadToCloudinary(
+          req.files.vehicleImage[0].buffer,
+          "vehicle_images"
+        );
       }
 
       // Create driver
@@ -95,62 +114,60 @@ class DriverController {
         selfieImage,
         vehicle: {
           ...vehicle,
-          image: vehicleImage
+          image: vehicleImage,
         },
         serviceTypes: serviceTypesArray,
-        insuranceInformation:insuranceInformation
+        insuranceInformation: insuranceInformation,
       });
       // console.log(insurance);
 
       await driver.save();
 
-
       // Update user role to driver
-      await User.findByIdAndUpdate(userId, { role: 'driver' });
+      await User.findByIdAndUpdate(userId, { role: "driver" });
 
       res.status(201).json({
         success: true,
-        message: 'Driver registration submitted successfully. Awaiting admin approval.',
-        data: { driverId: driver._id, status: driver.status }
+        message:
+          "Driver registration submitted successfully. Awaiting admin approval.",
+        data: { driverId: driver._id, status: driver.status },
       });
-
     } catch (error) {
-      console.error('Driver registration error:', error);
+      console.error("Driver registration error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
-
 
   async getProfile(req, res) {
     try {
       const userId = req.user.userId;
       const driver = await Driver.findOne({ userId })
-        .populate('userId', 'fullName email phoneNumber profileImage')
-        .populate('serviceTypes', 'name category');
+        .populate("userId", "fullName email phoneNumber profileImage")
+        .populate("serviceTypes", "name category");
 
       if (!driver) {
         return res.status(404).json({
           success: false,
-          message: 'Driver profile not found'
+          message: "Driver profile not found",
         });
       }
 
       res.json({
         success: true,
-        data: driver
+        data: driver,
       });
     } catch (error) {
-      logger.error('Get driver profile error:', error);
+      logger.error("Get driver profile error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
- async updateProfile (req, res) {
+  async updateProfile(req, res) {
     try {
       const userId = req.user.userId; // Logged-in user ID
       const {
@@ -191,23 +208,23 @@ class DriverController {
       if (!driver) {
         return res.status(404).json({
           success: false,
-          message: 'Driver profile not found',
+          message: "Driver profile not found",
         });
       }
 
       res.json({
         success: true,
-        message: 'Driver profile updated successfully',
+        message: "Driver profile updated successfully",
         data: driver,
       });
     } catch (error) {
-      console.error('Update driver profile error:', error);
+      console.error("Update driver profile error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error',
+        message: "Internal server error",
       });
     }
-  };
+  }
 
   async updateLocation(req, res) {
     try {
@@ -218,28 +235,28 @@ class DriverController {
         { userId },
         {
           currentLocation: {
-            type: 'Point',
-            coordinates: [longitude, latitude]
-          }
+            type: "Point",
+            coordinates: [longitude, latitude],
+          },
         }
       );
 
       // Broadcast location to nearby customers
-      const io = req.app.get('io');
-      io.emit('driver_location_update', {
+      const io = req.app.get("io");
+      io.emit("driver_location_update", {
         driverId: userId,
-        location: { latitude, longitude }
+        location: { latitude, longitude },
       });
 
       res.json({
         success: true,
-        message: 'Location updated successfully'
+        message: "Location updated successfully",
       });
     } catch (error) {
-      logger.error('Update driver location error:', error);
+      logger.error("Update driver location error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
@@ -258,20 +275,20 @@ class DriverController {
       if (!driver) {
         return res.status(404).json({
           success: false,
-          message: 'Driver profile not found'
+          message: "Driver profile not found",
         });
       }
 
       res.json({
         success: true,
-        message: `Driver is now ${isOnline ? 'online' : 'offline'}`,
-        data: { isOnline: driver.isOnline, isAvailable: driver.isAvailable }
+        message: `Driver is now ${isOnline ? "online" : "offline"}`,
+        data: { isOnline: driver.isOnline, isAvailable: driver.isAvailable },
       });
     } catch (error) {
-      logger.error('Toggle online status error:', error);
+      logger.error("Toggle online status error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
@@ -285,7 +302,7 @@ class DriverController {
       if (!driver) {
         return res.status(404).json({
           success: false,
-          message: 'Driver profile not found'
+          message: "Driver profile not found",
         });
       }
 
@@ -293,12 +310,12 @@ class DriverController {
       const query = { driverId: driver.userId };
       if (status) {
         // Use regex for case-insensitive partial matching
-        query.status = { $regex: status, $options: 'i' };
+        query.status = { $regex: status, $options: "i" };
       }
 
       const rides = await Ride.find(query)
-        .populate('customerId', 'fullName profileImage')
-        .populate('serviceId', 'name category')
+        .populate("customerId", "fullName profileImage")
+        .populate("serviceId", "name category")
         .sort({ createdAt: -1 })
         .limit(parseInt(limit))
         .skip((parseInt(page) - 1) * parseInt(limit));
@@ -312,53 +329,52 @@ class DriverController {
           pagination: {
             current: parseInt(page),
             pages: Math.ceil(total / parseInt(limit)),
-            total
-          }
-        }
+            total,
+          },
+        },
       });
     } catch (error) {
-      logger.error('Get driver trip history error:', error);
+      logger.error("Get driver trip history error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
-
 
   async getEarnings(req, res) {
     try {
       const userId = req.user.userId;
       const driver = await Driver.findOne({ userId });
-      const driverId= driver._id;
+      const driverId = driver._id;
 
       if (!driver) {
         return res.status(404).json({
           success: false,
-          message: 'Driver profile not found'
+          message: "Driver profile not found",
         });
       }
 
       const result = await Ride.aggregate([
-      { $match: { driverId } },
-      {
-        $group: {
-          _id: null,
-          totalEstimatedFare: { $sum: "$estimatedFare" },
-          totalRides: { $sum: 1 }
-        }
-      }
-    ]);
+        { $match: { driverId } },
+        {
+          $group: {
+            _id: null,
+            totalEstimatedFare: { $sum: "$estimatedFare" },
+            totalRides: { $sum: 1 },
+          },
+        },
+      ]);
 
       res.json({
         success: true,
-        data: result
+        data: result,
       });
     } catch (error) {
-      logger.error('Get driver earnings error:', error);
+      logger.error("Get driver earnings error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
@@ -372,14 +388,14 @@ class DriverController {
       if (!driver) {
         return res.status(404).json({
           success: false,
-          message: 'Driver profile not found'
+          message: "Driver profile not found",
         });
       }
 
       if (amount > driver.earnings.available) {
         return res.status(400).json({
           success: false,
-          message: 'Insufficient available balance'
+          message: "Insufficient available balance",
         });
       }
 
@@ -387,7 +403,7 @@ class DriverController {
       driver.withdrawals.push({
         amount,
         bankDetails,
-        status: 'pending'
+        status: "pending",
       });
 
       // Update available earnings
@@ -397,18 +413,18 @@ class DriverController {
 
       res.json({
         success: true,
-        message: 'Withdrawal request submitted successfully',
+        message: "Withdrawal request submitted successfully",
         data: {
           requestId: driver.withdrawals[driver.withdrawals.length - 1]._id,
           amount,
-          status: 'pending'
-        }
+          status: "pending",
+        },
       });
     } catch (error) {
-      logger.error('Request withdrawal error:', error);
+      logger.error("Request withdrawal error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
@@ -422,121 +438,128 @@ class DriverController {
       if (!driver) {
         return res.status(404).json({
           success: false,
-          message: 'Driver profile not found'
+          message: "Driver profile not found",
         });
       }
 
       const rides = await Ride.find({
         driverId: driver._id,
-        'rating.customerToDriver.rating': { $exists: true }
+        "rating.customerToDriver.rating": { $exists: true },
       })
-        .populate('customerId', 'fullName profileImage')
-        .select('rating.customerToDriver createdAt')
+        .populate("customerId", "fullName profileImage")
+        .select("rating.customerToDriver createdAt")
         .sort({ createdAt: -1 })
         .limit(limit * 1)
         .skip((page - 1) * limit);
 
       const total = await Ride.countDocuments({
         driverId: driver._id,
-        'rating.customerToDriver.rating': { $exists: true }
+        "rating.customerToDriver.rating": { $exists: true },
       });
-
 
       res.json({
         success: true,
         data: {
-          reviews: rides.map(ride => ({
+          reviews: rides.map((ride) => ({
             customer: ride.customerId,
             rating: ride.rating.customerToDriver.rating,
             comment: ride.rating.customerToDriver.comment,
-            date: ride.createdAt
+            date: ride.createdAt,
           })),
           pagination: {
             current: page,
             pages: Math.ceil(total / limit),
-            total
+            total,
           },
           averageRating: driver.ratings.average,
-          totalRatings: driver.ratings.count
-        }
+          totalRatings: driver.ratings.count,
+        },
       });
     } catch (error) {
-      logger.error('Get driver reviews error:', error);
+      logger.error("Get driver reviews error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
 
-   // Get Driver loginhistory info
+  // Get Driver loginhistory info
   async loginHistory(req, res) {
     try {
       const userId = req.user.userId;
 
       // Fetch user by ID and select only loginHistory field
-      const user = await User.findById(userId).select('loginHistory');
+      const user = await User.findById(userId).select("loginHistory");
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          message: 'User not found'
+          message: "User not found",
         });
       }
 
       res.json({
         success: true,
-        message: 'Login history fetched successfully',
-        loginHistory: user.loginHistory
+        message: "Login history fetched successfully",
+        loginHistory: user.loginHistory,
       });
     } catch (error) {
-      console.error('Get login history error:', error);
+      console.error("Get login history error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
 
-
   // Get Driver Vehicle Info
- async getVehicleInfo(req, res) {
+  async getVehicleInfo(req, res) {
     try {
       const userId = req.user.userId;
 
-      const driver = await Driver.findOne({ userId }).select('vehicle licenseNumber licenseImage');
+      const driver = await Driver.findOne({ userId }).select(
+        "vehicle licenseNumber licenseImage"
+      );
 
       if (!driver) {
         return res.status(404).json({
           success: false,
-          message: 'Driver not found'
+          message: "Driver not found",
         });
       }
 
       res.json({
         success: true,
-        message: 'Vehicle information fetched successfully',
-        data: driver
+        message: "Vehicle information fetched successfully",
+        data: driver,
       });
     } catch (error) {
-      console.error('Get vehicle info error:', error);
+      console.error("Get vehicle info error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error",
       });
     }
   }
 
-
-
   // Create Stripe Connect Account for Driver
-  async createDriverStripeAccount (req, res){
+  async createDriverStripeAccount(req, res) {
     try {
       const { driverId, email } = req.body;
 
+      const driver = await Driver.findById(driverId);
+      console.log(driver);
+      if (!driver) {
+        return res.status(404).json({
+          success: false,
+          message: "Driver not found",
+        });
+      }
+
       const account = await stripe.accounts.create({
-        type: 'express',
-        country: 'US',
+        type: "express",
+        country: "US",
         email: email,
         capabilities: {
           card_payments: { requested: true },
@@ -545,25 +568,29 @@ class DriverController {
       });
 
       // TODO: Save account.id to your driver database
-      await Driver.findByIdAndUpdate(driverId, { 
-        stripeDriverId: account.id 
-      });
+      driver.stripeDriverId = account.id;
+      await driver.save();
+
+      console.log(driver);
+
+      // console.log('Stripe account created:', account.id, account);
 
       res.json({
         success: true,
         accountId: account.id,
-        message: 'Stripe Connect account created'
+        message: "Stripe Connect account created",
       });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: error.message 
+      console.log("Create Stripe account error:", error);
+      res.status(500).json({
+        success: false,
+        error: error.message,
       });
     }
-  };
+  }
 
   // Create Account Link for Driver Onboarding
-   async createAccountLink (req, res) {
+  async createAccountLink(req, res) {
     try {
       const { accountId } = req.body;
 
@@ -571,23 +598,58 @@ class DriverController {
         account: accountId,
         refresh_url: `${process.env.BASE_URL}/driver/onboarding/refresh`,
         return_url: `${process.env.BASE_URL}/driver/onboarding/success`,
-        type: 'account_onboarding',
+        type: "account_onboarding",
       });
 
       res.json({
         success: true,
-        url: accountLink.url
+        url: accountLink.url,
       });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: error.message 
+      res.status(500).json({
+        success: false,
+        error: error.message,
       });
     }
-  };
+  }
+
+  /**
+   * ✅ Contractor Dashboard Login Link
+   */
+  async getStripeDashboardLink(req, res) {
+    try{
+
+        const userId = req.user.userId;
+        const user = await User.findById(userId);
+        console.log("user", user);
+        const driver = await Driver.findOne({ userId: user._id });
+        if (!driver || !driver.stripeDriverId)
+          throw new AppError(404, "Stripe account not found");
+
+        console.log(driver)
+
+        const loginLink = await stripe.accounts.createLoginLink(
+          driver.stripeDriverId
+        );
+
+        console.log("loginLink", loginLink);
+
+        return {
+          url: loginLink.url,
+          message: "Stripe dashboard link created successfully",
+        };
+    }catch(error){
+        console.error("Error getting Stripe dashboard link:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+          });
+    }
+  }
 
   // Check Driver Account Status
-   async checkDriverAccountStatus (req, res) {
+  async checkDriverAccountStatus(req, res) {
+    
     try {
       const { accountId } = req.params;
 
@@ -606,15 +668,15 @@ class DriverController {
         isVerified: isVerified,
         chargesEnabled: account.charges_enabled,
         payoutsEnabled: account.payouts_enabled,
-        detailsSubmitted: account.details_submitted
+        detailsSubmitted: account.details_submitted,
       });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: error.message 
+      res.status(500).json({
+        success: false,
+        error: error.message,
       });
     }
-  };
+  }
 }
 
 module.exports = new DriverController();

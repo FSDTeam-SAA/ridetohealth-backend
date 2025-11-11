@@ -95,11 +95,11 @@ const driverSchema = new mongoose.Schema({
   ratings: {
     average: {
       type: Number,
-      default: 0
+      default: 1
     },
     count: {
       type: Number,
-      default: 0
+      default: 1
     }
   },
   earnings: {
@@ -152,7 +152,7 @@ const driverSchema = new mongoose.Schema({
     nidExpiry: Date,
     vehicleRegistrationExpiry: Date
   },
-  stripeDriverId: {
+   stripeDriverId: {
     type:String
   },
   street_address:{
