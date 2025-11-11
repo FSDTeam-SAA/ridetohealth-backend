@@ -181,7 +181,33 @@ const driverSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  ratings:{
+    average: {
+        type: Number,
+        min: 1,
+        max: 5
+      },
+      comment: String
+  },
+  count:{
+    type:Number
+  },
+  heading: {
+    type: Number, // Direction in degrees (0-360)
+    default: 0,
+    min: 0,
+    max: 360
+  },
+  speed: {
+    type: Number, // Speed in km/h
+    default: 0,
+    min: 0
+  },
+  accuracy: {
+    type: Number, // GPS accuracy in meters
+    default: null
+  },
 });
 
 driverSchema.index({ currentLocation: '2dsphere' });

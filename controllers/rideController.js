@@ -440,39 +440,139 @@ class RideController {
   async rateRide(req, res) {
     try {
       const { rideId } = req.params;
-      const { rating, reviews } = req.body;
+      const { rating, comment } = req.body;
+      const userId = req.user.userId;
+      const userRole = req.user.role;
 
-      console.log(rideId, req.body);
+      console.log('Rating request by user:', userId, 'role:', userRole);
 
-      const ride = await Ride.findById(rideId);
-      if (!ride || ride.status !== 'completed') {
-        return res.status(404).json({
+      // Validate rating
+      if (!rating || rating < 1 || rating > 5) {
+        return res.status(400).json({
           success: false,
-          message: 'Ride not found or not completed'
+          message: 'Rating must be between 1 and 5'
         });
       }
 
-      if (req.user.role === 'customer') {
-        ride.rating.customerToDriver = { rating };
-        ride.reviews = reviews;
+      // Find the ride
+      const ride = await Ride.findById(rideId);
+      // console.log('Found ride:', ride);
+      
+      if (!ride) {
+        return res.status(404).json({
+          success: false,
+          message: 'Ride not found'
+        });
+      }
+
+      if (ride.status !== 'completed') {
+        return res.status(400).json({
+          success: false,
+          message: 'Only completed rides can be rated'
+        });
+      }
+
+      // Verify user is part of this ride
+      if (userRole === 'customer' && ride.customerId.toString() !== userId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not authorized to rate this ride'
+        });
+      }
+
+      if (userRole === 'driver') {
+        const driver = await Driver.findOne({ userId });
+        if (!driver || ride.driverId.toString() !== driver._id.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: 'You are not authorized to rate this ride'
+          });
+        }
+      }
+
+      // Check if already rated
+      if (userRole === 'customer' && ride.rating?.customerToDriver?.rating) {
+        return res.status(400).json({
+          success: false,
+          message: 'You have already rated this ride'
+        });
+      }
+
+      if (userRole === 'driver' && ride.rating?.driverToCustomer?.rating) {
+        return res.status(400).json({
+          success: false,
+          message: 'You have already rated this customer'
+        });
+      }
+
+      // Submit rating
+      if (userRole === 'customer') {
+        // Initialize rating object if not exists
+        if (!ride.rating) {
+          ride.rating = {};
+        }
+
+        ride.rating.customerToDriver = {
+          rating,
+          comment: comment || '',
+          ratedAt: new Date()
+        };
 
         // Update driver rating
         const driver = await Driver.findById(ride.driverId);
-        const newCount = driver.ratings.count + 1;
-        const newAverage = ((driver.ratings.average * driver.ratings.count) + rating) / newCount;
-        
-        driver.ratings.average = newAverage;
-        driver.ratings.count = newCount;
-        await driver.save();
-      } else {
-        ride.rating.driverToCustomer = { rating};
+      
+
+
+        // Send notification to driver
+        const io = req.app.get('io');
+        io.to(`driver_${driver.userId}`).emit('new_rating', {
+          rideId: ride._id,
+          rating,
+          newAverage: driver.ratings.average
+        });
+        await sendNotification(driver.userId, {
+          title: 'New Rating Received',
+          message: `You received a ${rating}-star rating`,
+          type: 'rating_received',
+          data: { rideId: ride._id, rating }
+        });
+
+      } else if (userRole === 'driver') {
+        // Initialize rating object if not exists
+        if (!ride.rating) {
+          ride.rating = {};
+        }
+
+        ride.rating.driverToCustomer = {
+          rating,
+          reviews: reviews || '',
+          ratedAt: new Date()
+        };
+
+        // Optionally update customer rating (if you track customer ratings)
+        // const customer = await User.findById(ride.customerId);
+        // Update customer rating logic here if needed
+
+        // Send notification to customer
+        const io = req.app.get('io');
+        io.to(`user_${ride.customerId}`).emit('new_rating', {
+          rideId: ride._id,
+          rating
+        });
       }
 
       await ride.save();
 
       res.json({
         success: true,
-        message: 'Rating submitted successfully'
+        message: 'Rating submitted successfully',
+        data: {
+          rideId: ride._id,
+          rating,
+          ...(userRole === 'customer' && {
+            driverNewAverage: (await Driver.findById(ride.driverId)).ratings.average
+          })
+        }
       });
 
     } catch (error) {

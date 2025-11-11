@@ -278,7 +278,7 @@ class DriverController {
 
   async getTripHistory(req, res) {
     try {
-      const { page = 1, limit = 10 } = req.query;
+      const { page = 1, limit = 10, status } = req.query; // Accept status filter
       const userId = req.user.userId;
 
       const driver = await Driver.findOne({ userId });
@@ -289,22 +289,29 @@ class DriverController {
         });
       }
 
-      const rides = await Ride.find({ driverId: driver._id })
+      // Build query dynamically
+      const query = { driverId: driver.userId };
+      if (status) {
+        // Use regex for case-insensitive partial matching
+        query.status = { $regex: status, $options: 'i' };
+      }
+
+      const rides = await Ride.find(query)
         .populate('customerId', 'fullName profileImage')
         .populate('serviceId', 'name category')
         .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit));
 
-      const total = await Ride.countDocuments({ driverId: driver._id });
+      const total = await Ride.countDocuments(query);
 
       res.json({
         success: true,
         data: {
           rides,
           pagination: {
-            current: page,
-            pages: Math.ceil(total / limit),
+            current: parseInt(page),
+            pages: Math.ceil(total / parseInt(limit)),
             total
           }
         }
@@ -318,12 +325,12 @@ class DriverController {
     }
   }
 
+
   async getEarnings(req, res) {
     try {
       const userId = req.user.userId;
-      const driver = await Driver.findOne({ userId }).select('earnings withdrawals');
-
-      console.log(driver);
+      const driver = await Driver.findOne({ userId });
+      const driverId= driver._id;
 
       if (!driver) {
         return res.status(404).json({
@@ -332,12 +339,20 @@ class DriverController {
         });
       }
 
+      const result = await Ride.aggregate([
+      { $match: { driverId } },
+      {
+        $group: {
+          _id: null,
+          totalEstimatedFare: { $sum: "$estimatedFare" },
+          totalRides: { $sum: 1 }
+        }
+      }
+    ]);
+
       res.json({
         success: true,
-        data: {
-          earnings: driver.earnings,
-          withdrawals: driver.withdrawals
-        }
+        data: result
       });
     } catch (error) {
       logger.error('Get driver earnings error:', error);
@@ -413,7 +428,7 @@ class DriverController {
 
       const rides = await Ride.find({
         driverId: driver._id,
-        'rating.customerToDriver.rating reviews': { $exists: true }
+        'rating.customerToDriver.rating': { $exists: true }
       })
         .populate('customerId', 'fullName profileImage')
         .select('rating.customerToDriver createdAt')

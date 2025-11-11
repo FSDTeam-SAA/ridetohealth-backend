@@ -16,7 +16,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['ride_request', 'ride_accepted', 'ride_completed', 'payment', 'promotion', 'system'],
+    enum: ['ride_request', 'ride_accepted', 'ride_completed', 'payment', 'promotion', 'system', 'rating_received'],
     required: true
   },
   data: {

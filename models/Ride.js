@@ -87,7 +87,7 @@ const rideSchema = new mongoose.Schema({
   },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'completed', 'failed'],
+    enum: ['pending', 'successfull', 'failed'],
     default: 'pending'
   },
   promoCode: {
