@@ -6,78 +6,144 @@ const { generateOTP, sendOTP } = require('../services/otpService');
 const { validateRegister, validateLogin } = require('../validators/authValidator');
 const logger = require('../utils/logger');
 const { refreshTokenSecret, refreshTokenExpires } = require('../config/config');
+const { uploadToCloudinary } = require("../services/cloudinaryService");
 
 
 class AuthController {
-  async register(req, res) {
-    try {
-      const { error } = validateRegister(req.body);
-      if (error) {
-        return res.status(400).json({
-          success: false,
-          message: error.details[0].message
-        });
-      }
+ async register (req, res){
+  try {
+    const { 
+      fullName, 
+      email, 
+      phoneNumber, 
+      password, 
+      role = "customer",
+      licenseNumber,
+      nidNumber,
+      serviceTypes,
+      insuranceInformation
+    } = req.body;
 
-      const { fullName, email, phoneNumber, password, role = 'customer' } = req.body;
-
-      // Check if user already exists
-      const existingUser = await User.findOne({
-        $or: [{ email }, { phoneNumber }]
-      });
-
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: 'User already exists with this email or phone number'
-        });
-      }
-
-      // Create new user
-      const user = new User({
-        fullName,
-        email,
-        phoneNumber,
-        password,
-        role
-      });
-
-      await user.save();
-
-
-      // Generate and send OTP for email verification
-      const otp = generateOTP();
-      await sendOTP(email, otp, 'email');
-
-      // Save OTP to database
-      await OTP.create({
-        userId: user._id,
-        otp,
-        type: 'email_verification',
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
-      });
-
-
-      res.status(201).json({
-        success: true,
-        message: 'User registered successfully. Please verify your email.',
-        data: {
-          userId: user._id,
-          fullName: user.fullName,
-          email: user.email,
-          phoneNumber: user.phoneNumber,
-          role: user.role
-        }
-      });
-
-    } catch (error) {
-      logger.error('Registration error:', error);
-      res.status(500).json({
+    console.log(req.body);
+    // ✅ Step 1: Validate required common fields
+    if (!fullName || !email || !phoneNumber || !password) {
+      return res.status(400).json({
         success: false,
-        message: 'Internal server error'
+        message: "Full name, email, phone number, and password are required."
       });
     }
+
+    // ✅ Step 2: Check if user already exists
+    const existingUser = await User.findOne({
+      $or: [{ email }, { phoneNumber }]
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists with this email or phone number"
+      });
+    }
+
+    // ✅ Step 3: Role-based validation
+    let licenseImage = null;
+    let nidImage = null;
+    let selfieImage = null;
+    let serviceTypesArray = [];
+
+    if (role === "driver") {
+      if (
+        !licenseNumber ||
+        !nidNumber ||
+        !req.files?.license ||
+        !req.files?.nid ||
+        !req.files?.selfie
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Driver registration requires all license, NID, and selfie images."
+        });
+      }
+
+      // Parse service types
+      if (typeof serviceTypes === "string") {
+        try {
+          serviceTypesArray = JSON.parse(serviceTypes);
+        } catch (err) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid serviceTypes format. Must be a valid JSON array."
+          });
+        }
+      } else if (Array.isArray(serviceTypes)) {
+        serviceTypesArray = serviceTypes;
+      }
+
+      // if (serviceTypesArray.length === 0) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "At least one service type is required for drivers."
+      //   });
+      // }
+
+      // ✅ Upload images to Cloudinary
+      licenseImage = await uploadToCloudinary(req.files.license[0].buffer, "driver_documents");
+      nidImage = await uploadToCloudinary(req.files.nid[0].buffer, "driver_documents");
+      selfieImage = await uploadToCloudinary(req.files.selfie[0].buffer, "driver_documents");
+    }
+
+    // ✅ Step 4: Create user
+    const user = new User({
+      fullName,
+      email,
+      phoneNumber,
+      password,
+      role,
+      licenseNumber,
+      licenseImage,
+      nidNumber,
+      nidImage,
+      selfieImage,
+      serviceTypes: role === "driver" ? serviceTypesArray : [],
+      insuranceInformation: role === "driver" ? insuranceInformation : undefined
+    });
+
+    await user.save();
+
+    // ✅ Step 5: Generate & send OTP for email verification
+    const otp = generateOTP();
+    await sendOTP(email, otp, "email");
+
+    await OTP.create({
+      userId: user._id,
+      otp,
+      type: "email_verification",
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+    });
+
+    return res.status(201).json({
+      success: true,
+      message:
+        role === "driver"
+          ? "Driver registered successfully. Please verify your email. Awaiting admin approval."
+          : "Customer registered successfully. Please verify your email.",
+      data: {
+        userId: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    logger.error("Registration error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
   }
+};
+
 
   async login(req, res) {
     try {
@@ -203,7 +269,7 @@ class AuthController {
   async verifyOTP(req, res) {
     try {
       const { email, otp, type } = req.body;
-
+      console.log(req.body);
       const otpRecord = await OTP.findOne({
         otp,
         type,

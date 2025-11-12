@@ -43,6 +43,30 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  licenseNumber: {
+    type: String,
+    sparse: true
+  },
+  licenseImage: {
+    type: String,
+    defualt:null
+  },
+  nidNumber: {
+    type: String,
+    sparse: true,
+  },
+  nidImage: {
+    type: String,
+    defualt:null
+  },
+  selfieImage: {
+    type: String,
+    defualt:null
+  },
+  serviceTypes: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Service'
+    }],
   currentLocation: {
     type: {
       type: String,
@@ -82,19 +106,25 @@ const userSchema = new mongoose.Schema({
       }
     }]
   },
-  paymentMethods: [{
-    type: {
-      type: String,
-      enum: ['card', 'paypal']
+ 
+  suspensions: [{
+    reason: String,
+    duration: Number, // days
+    startDate: {
+      type: Date,
+      default: Date.now
     },
-    cardNumber: String,
-    cardHolderName: String,
-    expiryDate: String,
-    isDefault: {
+    endDate: Date,
+    isActive: {
       type: Boolean,
-      default: false
+      default: true
     }
   }],
+  documents: {
+    licenseExpiry: Date,
+    nidExpiry: Date,
+    vehicleRegistrationExpiry: Date
+  },
   notificationSettings: {
     pushNotifications: {
       type: Boolean,
@@ -122,6 +152,29 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  street_address:{
+    type:String
+  },
+  city:{
+    type:String,
+  },
+  state:{
+    type:String
+  },
+  zipcode:{
+    type:String
+  },
+  date_of_birth:{
+    type:String,
+  },
+  emergency_contact:{
+    name:{
+      type:String
+    },
+  phoneNumber:{
+      type:String
+    }
+  },
 
   isActive: {
     type: Boolean,
@@ -143,7 +196,14 @@ const userSchema = new mongoose.Schema({
 
 
 userSchema.index({ currentLocation: '2dsphere' });
-
+userSchema.index(
+  { licenseNumber: 1 },
+  { unique: true, partialFilterExpression: { licenseNumber: { $type: "string" } } }
+);
+userSchema.index(
+  { nidNumber: 1 },
+  { unique: true, partialFilterExpression: { nidNumber: { $exists: true, $ne: null } } }
+);
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 12);
