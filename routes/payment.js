@@ -8,6 +8,5 @@ router.use(authenticateToken);
 router.post('/wallet/add-balance', paymentController.addWalletBalance);
 router.get('/wallet/history', paymentController.getWalletHistory);
 router.post('/promo/validate', paymentController.validatePromoCode);
-router.post('/ride/process', paymentController.processRidePayment);
 
 module.exports = router;

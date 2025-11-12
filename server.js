@@ -17,6 +17,7 @@ const driverRoutes = require('./routes/driver');
 const serviceRoutes = require('./routes/service');
 const notificationRoutes = require('./routes/notification');
 const stripeRoutes = require('./routes/stripeRoutes');
+const webhookController = require('./controllers/webhookController');
 // const initializeSocket = require( './socket.js');
 
 
@@ -32,7 +33,8 @@ const server = http.createServer(app);
 
 app.use(helmet());
 app.use(compression());
-app.use(cors());
+app.use(cors())
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), webhookController.handleWebhook);
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 

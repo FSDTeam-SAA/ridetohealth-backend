@@ -2,6 +2,7 @@ const { stripeSecret, clientUrl } = require('../config/config');
 const stripe = require('stripe')(stripeSecret);
 const User = require('../models/User');
 const Ride = require('../models/Ride');
+const Driver = require('../models/Driver');
 const Payment = require('../models/Payment');
 const PromoCode = require('../models/PromoCode');
 const logger = require('../utils/logger');
@@ -11,6 +12,7 @@ const logger = require('../utils/logger');
 // export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 class PaymentController {
+  
   async addWalletBalance(req, res) {
     try {
       const { amount, paymentMethodId } = req.body;
@@ -162,177 +164,75 @@ class PaymentController {
     }
   }
 
-  async processRidePayment(req, res) {
+  
+
+ async createRidePayment (req, res) {
     try {
-      const { rideId, paymentMethod, paymentMethodId } = req.body;
+      const rideId = req.user.userId; // or your ride/project id
+      const { amount, stripeDriverId, driverId, title } = req.body;
 
-      const ride = await Ride.findById(rideId);
-      if (!ride || ride.status !== 'completed') {
-        return res.status(404).json({
-          success: false,
-          message: 'Ride not found or not completed'
-        });
+      if (!amount || !stripeDriverId || !driverId) {
+        return res.status(400).json({ success: false, error: 'Missing required fields' });
       }
-
-      if (ride.paymentStatus === 'completed') {
-        return res.status(400).json({
-          success: false,
-          message: 'Payment already processed'
-        });
-      }
-
-      let paymentSuccess = false;
-
-      if (paymentMethod === 'wallet') {
-        const user = await User.findById(ride.customerId);
-        if (user.wallet.balance >= ride.finalFare) {
-          user.wallet.balance -= ride.finalFare;
-          user.wallet.transactions.push({
-            type: 'debit',
-            amount: ride.finalFare,
-            description: `Payment for ride ${ride._id}`
-          });
-          await user.save();
-          paymentSuccess = true;
-        }
-      } else if (paymentMethod === 'card' && paymentMethodId) {
-        try {
-          const paymentIntent = await stripe.paymentIntents.create({
-            amount: ride.finalFare * 100,
-            currency: 'usd',
-            payment_method: paymentMethodId,
-            confirm: true,
-            return_url: clientUrl || 'http://localhost:3000'
-          });
-
-          if (paymentIntent.status === 'succeeded') {
-            paymentSuccess = true;
-          }
-        } catch (stripeError) {
-          logger.error('Stripe payment error:', stripeError);
-        }
-      } else if (paymentMethod === 'cash') {
-        paymentSuccess = true; // Cash payment is handled offline
-      }
-
-      if (paymentSuccess) {
-        ride.paymentStatus = 'completed';
-        await ride.save();
-
-        res.json({
-          success: true,
-          message: 'Payment processed successfully',
-          data: {
-            rideId: ride._id,
-            amount: ride.finalFare,
-            paymentMethod
-          }
-        });
-      } else {
-        ride.paymentStatus = 'failed';
-        await ride.save();
-
-        res.status(400).json({
-          success: false,
-          message: 'Payment failed'
-        });
-      }
-    } catch (error) {
-      logger.error('Process ride payment error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  }
-
-
-
-  // Create Payment Intent with Split Payment (Admin 5%, Driver 95%)
-  async createRidePayment (req, res){
-    try {
-      
-      const rideId = req.user.userId;
-      const { 
-        amount, // Total amount in cents (e.g., 10000 = $100.00)
-        currency = 'usd',
-        stripeCustomerId, // Stripe customer ID of the rider
-        stripeDriverId, // Driver's Stripe Connect Account ID
-        driverId
-      } = req.body;
 
       // Calculate split amounts
       const totalAmount = amount;
       const adminFee = Math.round(totalAmount * 0.05); // 5%
-      const driverAmount = totalAmount - adminFee; // 95%
+      const driverAmount = totalAmount - adminFee;
 
-      // Create Payment Intent
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: totalAmount,
-        currency: currency,
-        customer: stripeCustomerId,
+      // Create Checkout Session
+      const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
-        application_fee_amount: adminFee, // Admin keeps 5%
-        transfer_data: {
-          destination: stripeDriverId, // Driver receives 95%
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: { name: title || 'Ride Payment' },
+              unit_amount: totalAmount,
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: `${clientUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${clientUrl}/payment/cancel`,
+        payment_intent_data: {
+          application_fee_amount: adminFee,
+          transfer_data: {
+            destination: stripeDriverId,
+          },
+          metadata: {
+            rideId,
+            driverId,
+            adminFee,
+            driverAmount,
+          },
         },
-        metadata: {
-          rideId: rideId,
-          riderId: driverId,
-          adminFee: adminFee,
-          driverAmount: driverAmount
-        }
       });
-
-      // TODO: Save payment info to database
-      const payment = await Payment.create({
+      // Save payment info to database
+      await Payment.create({
         rideId,
         driverId,
         amount: totalAmount,
         adminFee,
         driverAmount,
-        paymentIntentId: paymentIntent.id,
-        status: 'pending'
+        success_url: session.success_url,
+        status: 'pending',
       });
 
       res.json({
         success: true,
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
+        url: session.url,
+        sessionId: session.id,
         breakdown: {
           total: totalAmount / 100,
           adminFee: adminFee / 100,
-          driverAmount: driverAmount / 100
+          driverAmount: driverAmount / 100,
         },
-        payment
       });
     } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: error.message 
-      });
-    }
-  };
-
-  // Confirm Payment
-  async confirmPayment (req, res) {
-    try {
-      const { paymentIntentId, paymentMethodId } = req.body;
-
-      const paymentIntent = await stripe.paymentIntents.confirm(
-        paymentIntentId,
-        { payment_method: paymentMethodId }
-      );
-
-      res.json({
-        success: true,
-        status: paymentIntent.status
-      });
-    } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        error: error.message 
-      });
+      console.error('Error creating checkout session:', error);
+      res.status(500).json({ success: false, error: error.message });
     }
   };
 

@@ -9,25 +9,29 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 class DriverController {
   async register(req, res) {
     try {
+
       const {
         licenseNumber,
         nidNumber,
-        vehicle: vehicleString,
         serviceTypes,
         insuranceInformation,
+        fullName,
+        phoneNumber,
+        email,
+        password,
+        role = "driver"
       } = req.body;
 
-      const userId = req.user.userId;
-      console.log(insuranceInformation);
+      // const userId = req.user.userId;
 
       // Check if driver already exists
-      const existingDriver = await Driver.findOne({ userId });
-      if (existingDriver) {
-        return res.status(400).json({
-          success: false,
-          message: "Driver profile already exists",
-        });
-      }
+      // const existingDriver = await Driver.findOne({ userId });
+      // if (existingDriver) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Driver profile already exists",
+      //   });
+      // }
 
       // Check for uploaded files
       if (
@@ -39,25 +43,6 @@ class DriverController {
         return res.status(400).json({
           success: false,
           message: "All required documents must be uploaded",
-        });
-      }
-
-      const vehicle = JSON.parse(vehicleString);
-      // const insurance = insuranceInformation ? JSON.parse(insuranceInformation) : {};
-
-      // Validate vehicle object
-      if (
-        !vehicle ||
-        !vehicle.color ||
-        !vehicle.model ||
-        !vehicle.type ||
-        !vehicle.plateNumber ||
-        !vehicle.year
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "All vehicle fields (color, model, type, plateNumber, year) are required",
         });
       }
 
@@ -96,35 +81,35 @@ class DriverController {
         "driver_documents"
       );
 
-      let vehicleImage = null;
-      if (req.files.vehicleImage) {
-        vehicleImage = await uploadToCloudinary(
-          req.files.vehicleImage[0].buffer,
-          "vehicle_images"
-        );
-      }
+      // let vehicleImage = null;
+      // if (req.files.vehicleImage) {
+      //   vehicleImage = await uploadToCloudinary(
+      //     req.files.vehicleImage[0].buffer,
+      //     "vehicle_images"
+      //   );
+      // }
 
       // Create driver
       const driver = new Driver({
-        userId,
         licenseNumber,
         licenseImage,
         nidNumber,
         nidImage,
         selfieImage,
-        vehicle: {
-          ...vehicle,
-          image: vehicleImage,
-        },
         serviceTypes: serviceTypesArray,
         insuranceInformation: insuranceInformation,
+        fullName,
+        phoneNumber,
+        email,
+        password,
+        role
       });
       // console.log(insurance);
 
       await driver.save();
 
       // Update user role to driver
-      await User.findByIdAndUpdate(userId, { role: "driver" });
+      // await User.findByIdAndUpdate({ role: "driver" });
 
       res.status(201).json({
         success: true,
@@ -181,6 +166,7 @@ class DriverController {
         zipcode,
         date_of_birth,
         emergency_contact,
+        insuranceInformation
       } = req.body;
 
       // ✅ Update User basic info
@@ -201,6 +187,7 @@ class DriverController {
           zipcode,
           date_of_birth,
           emergency_contact,
+          insuranceInformation
         },
         { new: true, runValidators: true }
       );
@@ -543,12 +530,16 @@ class DriverController {
     }
   }
 
+
   // Create Stripe Connect Account for Driver
   async createDriverStripeAccount(req, res) {
     try {
-      const { driverId, email } = req.body;
+      const userId = req.user.userId;
+      const user = await User.findById(userId);
+      // const { driverId, email } = req.body;
 
-      const driver = await Driver.findById(driverId);
+      // const driver = await Driver.findById(driverId);
+      const driver = await Driver.findOne({ userId });
       console.log(driver);
       if (!driver) {
         return res.status(404).json({
@@ -558,27 +549,47 @@ class DriverController {
       }
 
       const account = await stripe.accounts.create({
-        type: "express",
-        country: "US",
-        email: email,
-        capabilities: {
-          card_payments: { requested: true },
-          transfers: { requested: true },
+        
+        type: 'express',
+        email: user.email,
+        business_type: 'individual',
+        individual: {
+          first_name: user.fullName,
+          email: user.email,
+          // phone: user.phone,
+        },
+        business_profile: {
+          name: user.companyName,
+          product_description: user.professionTitle,
+          url: 'https://your-default-website.com/',
+        },
+        settings: {
+          payments: {
+            statement_descriptor: user.companyName,
+          },
         },
       });
+      if (!account) {
+        throw new AppError(400, 'Failed to create stripe account');
+      }
 
       // TODO: Save account.id to your driver database
       driver.stripeDriverId = account.id;
       await driver.save();
 
-      console.log(driver);
 
-      // console.log('Stripe account created:', account.id, account);
+       const accountLink = await stripe.accountLinks.create({
+        account: account.id,
+        refresh_url: `${process.env.BASE_URL}/driver/onboarding/refresh`,
+        return_url: `${process.env.BASE_URL}/driver/onboarding/success`,
+        type: "account_onboarding",
+      });
 
       res.json({
         success: true,
         accountId: account.id,
         message: "Stripe Connect account created",
+        url: accountLink.url,
       });
     } catch (error) {
       console.log("Create Stripe account error:", error);
@@ -588,31 +599,6 @@ class DriverController {
       });
     }
   }
-
-  // Create Account Link for Driver Onboarding
-  async createAccountLink(req, res) {
-    try {
-      const { accountId } = req.body;
-
-      const accountLink = await stripe.accountLinks.create({
-        account: accountId,
-        refresh_url: `${process.env.BASE_URL}/driver/onboarding/refresh`,
-        return_url: `${process.env.BASE_URL}/driver/onboarding/success`,
-        type: "account_onboarding",
-      });
-
-      res.json({
-        success: true,
-        url: accountLink.url,
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error.message,
-      });
-    }
-  }
-
   /**
    * ✅ Contractor Dashboard Login Link
    */
@@ -621,23 +607,23 @@ class DriverController {
 
         const userId = req.user.userId;
         const user = await User.findById(userId);
-        console.log("user", user);
+        // console.log("user", user);
         const driver = await Driver.findOne({ userId: user._id });
         if (!driver || !driver.stripeDriverId)
           throw new AppError(404, "Stripe account not found");
 
-        console.log(driver)
+        // console.log(driver)
 
         const loginLink = await stripe.accounts.createLoginLink(
           driver.stripeDriverId
         );
 
-        console.log("loginLink", loginLink);
+        // console.log("loginLink", loginLink);
 
-        return {
+        res.json({
           url: loginLink.url,
           message: "Stripe dashboard link created successfully",
-        };
+        });
     }catch(error){
         console.error("Error getting Stripe dashboard link:", error);
         res.status(500).json({
@@ -680,3 +666,4 @@ class DriverController {
 }
 
 module.exports = new DriverController();
+// module.exports = new RideController();

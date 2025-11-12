@@ -4,16 +4,19 @@ const { authenticateToken } = require('../middleware/auth');
 const { uploadMultiple } = require('../middleware/upload');
 const router = express.Router();
 
-router.use(authenticateToken);
+
+
 
 const uploadFields = uploadMultiple([
   { name: 'license', maxCount: 1 },
   { name: 'nid', maxCount: 1 },
-  { name: 'selfie', maxCount: 1 },
-  { name: 'vehicleImage', maxCount: 1 }
+  { name: 'selfie', maxCount: 1 }
 ]);
 
 router.post('/register', uploadFields, driverController.register);
+
+router.use(authenticateToken);
+
 router.get('/profile', driverController.getProfile);
 router.put('/profile', driverController.updateProfile);
 router.put('/location', driverController.updateLocation);
