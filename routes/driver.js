@@ -5,8 +5,6 @@ const { uploadMultiple } = require('../middleware/upload');
 const router = express.Router();
 
 
-
-
 const uploadFields = uploadMultiple([
   { name: 'license', maxCount: 1 },
   { name: 'nid', maxCount: 1 },

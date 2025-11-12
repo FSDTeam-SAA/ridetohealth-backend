@@ -6,106 +6,28 @@ const driverSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
-  fullName: {
-    type: String,
-    required: true
+  stripeDriverId: {
+    type:String
   },
-  email: {
-    type: String,
-    required: true,
-  },
-  phoneNumber: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  licenseNumber: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  licenseImage: {
-    type: String,
-    required: true
-  },
-  nidNumber: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  nidImage: {
-    type: String,
-    required: true
-  },
-  selfieImage: {
-    type: String,
-    required: true
-  },
-  // vehicle: {
-  //   type: {
-  //     type: String,
-  //     required: true
-  //   },
-  //   model: {
-  //     type: String,
-  //     required: true
-  //   },
-  //   year: {
-  //     type: Number,
-  //     required: true
-  //   },
-  //   plateNumber: {
-  //     type: String,
-  //     required: true,
-  //     unique: true
-  //   },
-  //   color: {
-  //     type: String,
-  //     required: true
-  //   },
-  //   image: String,
-  //   registrationDocument: String
-  // },
-  insuranceInformation:{
-    insuranceProvider:{
-      type:String
+  paymentMethods: [{
+    type: {
+      type: String,
+      enum: ['card', 'paypal']
     },
-    policyNumber:{
-      type:String
-    },
-    expiryDate:{
-      type:String
+    cardNumber: String,
+    cardHolderName: String,
+    expiryDate: String,
+    isDefault: {
+      type: Boolean,
+      default: false
     }
-  },
-  serviceTypes: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Service'
   }],
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected', 'suspended'],
     default: 'pending'
   },
-  isOnline: {
-    type: Boolean,
-    default: false
-  },
-  isAvailable: {
-    type: Boolean,
-    default: true
-  },
-  currentLocation: {
-    type: {
-      type: String,
-      enum: ['Point'],
-      default: 'Point'
-    },
-    coordinates: {
-      type: [Number],
-      default: [0, 0]
-    }
-  },
-  earnings: {
+   earnings: {
     total: {
       type: Number,
       default: 0
@@ -119,72 +41,28 @@ const driverSchema = new mongoose.Schema({
       default: 0
     }
   },
-  withdrawals: [{
+  isAvailable: {
+    type: Boolean,
+    default: true
+  },
+   withdrawals: [{
     amount: Number,
     bankDetails: {
       accountNumber: String,
       bankName: String,
       accountHolderName: String
     },
-    status: {
+    ridestatus: {
       type: String,
       enum: ['pending', 'completed', 'failed'],
       default: 'pending'
     },
-    requestDate: {
+     requestDate: {
       type: Date,
       default: Date.now
     },
     completedDate: Date
   }],
-  suspensions: [{
-    reason: String,
-    duration: Number, // days
-    startDate: {
-      type: Date,
-      default: Date.now
-    },
-    endDate: Date,
-    isActive: {
-      type: Boolean,
-      default: true
-    }
-  }],
-  documents: {
-    licenseExpiry: Date,
-    nidExpiry: Date,
-    vehicleRegistrationExpiry: Date
-  },
-   stripeDriverId: {
-    type:String
-  },
-  street_address:{
-    type:String
-  },
-  city:{
-    type:String,
-  },
-  state:{
-    type:String
-  },
-  zipcode:{
-    type:String
-  },
-  date_of_birth:{
-    type:String,
-  },
-  emergency_contact:{
-    name:{
-      type:String
-    },
-    phoneNumber:{
-      type:String
-    }
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
   ratings:{
     average: {
         type: Number,
@@ -211,9 +89,7 @@ const driverSchema = new mongoose.Schema({
     type: Number, // GPS accuracy in meters
     default: null
   },
-  role:{
-    type:String,
-  }
+ 
 });
 
 driverSchema.index({ currentLocation: '2dsphere' });
