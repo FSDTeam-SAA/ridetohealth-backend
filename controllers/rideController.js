@@ -444,7 +444,7 @@ class RideController {
       const userId = req.user.userId;
       const userRole = req.user.role;
 
-      console.log('Rating request by user:', userId, 'role:', userRole);
+      // console.log('Rating request by user:', userId, 'role:', userRole);
 
       // Validate rating
       if (!rating || rating < 1 || rating > 5) {
@@ -491,19 +491,19 @@ class RideController {
       }
 
       // Check if already rated
-      if (userRole === 'customer' && ride.rating?.customerToDriver?.rating) {
-        return res.status(400).json({
-          success: false,
-          message: 'You have already rated this ride'
-        });
-      }
+      // if (userRole === 'customer' && ride.rating?.customerToDriver?.rating) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: 'You have already rated this ride'
+      //   });
+      // }
 
-      if (userRole === 'driver' && ride.rating?.driverToCustomer?.rating) {
-        return res.status(400).json({
-          success: false,
-          message: 'You have already rated this customer'
-        });
-      }
+      // if (userRole === 'driver' && ride.rating?.driverToCustomer?.rating) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: 'You have already rated this customer'
+      //   });
+      // }
 
       // Submit rating
       if (userRole === 'customer') {

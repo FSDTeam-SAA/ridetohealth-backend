@@ -14,9 +14,6 @@ router.post('/saved-places', userController.addSavedPlace);
 router.get('/saved-places', userController.getSavedPlaces);
 router.delete('/saved-places/:placeId', userController.deleteSavedPlace);
 router.get('/recent-trips', userController.getRecentTrips);
-router.post('/payment-methods', userController.addPaymentMethod);
-router.get('/payment-methods', userController.getPaymentMethods);
-router.delete('/payment-methods/:methodId', userController.deletePaymentMethod);
 router.put('/notification-settings', userController.updateNotificationSettings);
 router.get('/find-rider', userController.getRiderByDestination);
 

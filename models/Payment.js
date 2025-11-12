@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema(
   {
@@ -31,9 +31,8 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       default: "usd",
     },
-    paymentIntentId: {
+    success_url: {
       type: String,
-      required: true, // Stripe payment intent ID
     },
     paymentMethod: {
       type: String,
@@ -53,8 +52,13 @@ const paymentSchema = new mongoose.Schema(
       type: Object,
       default: {},
     },
+    isStripeVerified:{
+      type:Boolean
+    }
   },
   { timestamps: true }
 );
 
-export default mongoose.model("Payment", paymentSchema);
+// export default mongoose.model("Payment", paymentSchema);
+
+module.exports = mongoose.model('Payment', paymentSchema);

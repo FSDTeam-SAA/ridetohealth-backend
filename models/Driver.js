@@ -4,7 +4,20 @@ const driverSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+    default: null
+  },
+  fullName: {
+    type: String,
     required: true
+  },
+  email: {
+    type: String,
+    required: true,
+  },
+  phoneNumber: {
+    type: String,
+    required: true,
+    unique: true
   },
   licenseNumber: {
     type: String,
@@ -28,31 +41,31 @@ const driverSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  vehicle: {
-    type: {
-      type: String,
-      required: true
-    },
-    model: {
-      type: String,
-      required: true
-    },
-    year: {
-      type: Number,
-      required: true
-    },
-    plateNumber: {
-      type: String,
-      required: true,
-      unique: true
-    },
-    color: {
-      type: String,
-      required: true
-    },
-    image: String,
-    registrationDocument: String
-  },
+  // vehicle: {
+  //   type: {
+  //     type: String,
+  //     required: true
+  //   },
+  //   model: {
+  //     type: String,
+  //     required: true
+  //   },
+  //   year: {
+  //     type: Number,
+  //     required: true
+  //   },
+  //   plateNumber: {
+  //     type: String,
+  //     required: true,
+  //     unique: true
+  //   },
+  //   color: {
+  //     type: String,
+  //     required: true
+  //   },
+  //   image: String,
+  //   registrationDocument: String
+  // },
   insuranceInformation:{
     insuranceProvider:{
       type:String
@@ -90,16 +103,6 @@ const driverSchema = new mongoose.Schema({
     coordinates: {
       type: [Number],
       default: [0, 0]
-    }
-  },
-  ratings: {
-    average: {
-      type: Number,
-      default: 0
-    },
-    count: {
-      type: Number,
-      default: 0
     }
   },
   earnings: {
@@ -152,7 +155,7 @@ const driverSchema = new mongoose.Schema({
     nidExpiry: Date,
     vehicleRegistrationExpiry: Date
   },
-  stripeDriverId: {
+   stripeDriverId: {
     type:String
   },
   street_address:{
@@ -208,6 +211,9 @@ const driverSchema = new mongoose.Schema({
     type: Number, // GPS accuracy in meters
     default: null
   },
+  role:{
+    type:String,
+  }
 });
 
 driverSchema.index({ currentLocation: '2dsphere' });
