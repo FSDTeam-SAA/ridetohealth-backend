@@ -4,6 +4,11 @@ const driverSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+    required: true,
+  },
+  vehicleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Vehicle',
     default: null
   },
   stripeDriverId: {
@@ -45,7 +50,7 @@ const driverSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-   withdrawals: [{
+  withdrawals: [{
     amount: Number,
     bankDetails: {
       accountNumber: String,
@@ -80,6 +85,10 @@ const driverSchema = new mongoose.Schema({
     min: 0,
     max: 360
   },
+  isOnline:{
+    type: Boolean,
+    default: true
+  },
   speed: {
     type: Number, // Speed in km/h
     default: 0,
@@ -89,9 +98,20 @@ const driverSchema = new mongoose.Schema({
     type: Number, // GPS accuracy in meters
     default: null
   },
+  currentRideId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Ride',
+  },
+
  
 });
 
 driverSchema.index({ currentLocation: '2dsphere' });
+
+driverSchema.index(
+  { "vehicle.plateNumber": 1 },
+  { unique: true, partialFilterExpression: { "vehicle.plateNumber": { $exists: true, $ne: null } } }
+);
+
 
 module.exports = mongoose.model('Driver', driverSchema);

@@ -1,3 +1,4 @@
+const { boolean } = require('joi');
 const mongoose = require('mongoose');
 
 const serviceSchema = new mongoose.Schema({
@@ -6,27 +7,27 @@ const serviceSchema = new mongoose.Schema({
     required: true
   },
   description: String,
-  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true},
+  // category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true},
   icon: String,
   baseFare: {
     type: Number,
-    required: true
+    default: 100
   },
   driverId: {
     type:String,
-    required: true
   },
+  serviceImage: String,
   perKmRate: {
     type: Number,
-    required: true
+    default: 10
   },
   perMinuteRate: {
     type: Number,
-    required: true
+    default: 2
   },
   minimumFare: {
     type: Number,
-    required: true
+    default: 50
   },
   cancellationFee: {
     type: Number,
@@ -34,7 +35,7 @@ const serviceSchema = new mongoose.Schema({
   },
   capacity: {
     type: Number,
-    required: true
+    default: 4
   },
   isActive: {
     type: Boolean,
@@ -44,11 +45,11 @@ const serviceSchema = new mongoose.Schema({
   estimatedArrivalTime: {
     type: Number,
     default: 5 // minutes
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
-});
+},
+{
+  timestamps: true
+}
+);
 
 module.exports = mongoose.model('Service', serviceSchema);

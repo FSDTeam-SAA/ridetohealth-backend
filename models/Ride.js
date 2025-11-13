@@ -11,11 +11,6 @@ const rideSchema = new mongoose.Schema({
     ref: 'Driver',
     default: null
   },
-  stripeCustomerId: {
-    type:String,
-    ref:"Ride",
-    default: null
-  },
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service',
@@ -82,8 +77,8 @@ const rideSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['cash', 'wallet', 'card'],
-    required: true
+    enum: ['cash', 'stripe', 'card'],
+    default: 'stripe'
   },
   paymentStatus: {
     type: String,
