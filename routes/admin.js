@@ -2,6 +2,7 @@ const express = require('express');
 const adminController = require('../controllers/adminController');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { uploadMultiple } = require('../middleware/upload');
+const { route } = require('./service');
 const router = express.Router();
 
 router.use(authenticateToken);
@@ -21,14 +22,16 @@ const uploadFields = uploadMultiple([
 router.get('/dashboard/stats', adminController.getDashboardStats);
 
 // Driver Management
-router.get('/drivers/pending', adminController.getPendingDrivers);
-router.put('/drivers/:driverId/approve', adminController.approveDriver);
-router.put('/drivers/:driverId/suspend', adminController.suspendDriver);
+router.get('/drivers', adminController.getDrivers);
 
 // Service Management.
-router.post('/services', adminController.createService);
-router.put('/services/:serviceId', adminController.updateService);
+router.post('/services', uploadFields, adminController.createService);
+router.put('/services/:serviceId',  uploadFields, adminController.updateService);
 router.delete('/services/:serviceId', adminController.deleteService);
+
+// Vehicle Management
+router.post('/services/:serviceId/vehicle', adminController.createVehicle);
+router.put('/services/:serviceId/vehicle/:vehicleId', adminController.assignedDriverToVehicle);
 
 // Category Management
 router.post('/categories', uploadFields, adminController.createCategory);

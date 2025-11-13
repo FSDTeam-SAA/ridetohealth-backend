@@ -9,6 +9,7 @@ const logger = require('../utils/logger');
 
 
 
+
 class RideController {
   async requestRide(req, res) {
     try {
@@ -22,6 +23,9 @@ class RideController {
       } = req.body;
 
       const customerId = req.user.userId;
+      const user = await User.findById(customerId);
+
+      console.log('Request ride by user:', customerId, req.body);
 
       // Validate required fields
       if (!driverId) {
@@ -53,15 +57,16 @@ class RideController {
         });
       }
 
-      // Verify driver availability
-      const driver = await Driver.findOne({
-        _id: driverId,
-        status: 'approved',
-        isOnline: true,
-        isAvailable: true
-      }).populate('userId', 'fullName phoneNumber');
+      const driver = await Driver.findById(driverId);
+      // // Verify driver availability
+      // const driver = await Driver.findOne({
+      //   _id: driverId,
+      //   status: 'approved',
+      //   isOnline: true,
+      //   isAvailable: true
+      // });
 
-      if (!driver) {
+      if (driver.status !== 'approved' || !driver.isOnline || !driver.isAvailable) {
         return res.status(404).json({
           success: false,
           message: 'Driver is not available'
@@ -116,22 +121,22 @@ class RideController {
       await ride.save();
 
       // Send immediate notification to the selected driver
-      const io = req.app.get('io');
-      io.to(`driver_${driver.userId._id}`).emit('ride_request', {
-        rideId: ride._id,
-        pickup: pickupLocation,
-        dropoff: dropoffLocation,
-        estimatedFare: fare,
-        distance,
-        customerName: req.user.fullName || 'Customer'
-      });
+      // const io = req.app.get('io');
+      // io.to(`driver_${driver.userId._id}`).emit('ride_request', {
+      //   rideId: ride._id,
+      //   pickup: pickupLocation,
+      //   dropoff: dropoffLocation,
+      //   estimatedFare: fare,
+      //   distance,
+      //   customerName: req.user.fullName || 'Customer'
+      // });
 
-      await sendNotification(driver.userId._id, {
-        title: 'New Ride Request',
-        message: `New ride request from ${pickupLocation.address}`,
-        type: 'ride_request',
-        data: { rideId: ride._id }
-      });
+      // await sendNotification(driver.userId._id, {
+      //   title: 'New Ride Request',
+      //   message: `New ride request from ${pickupLocation.address}`,
+      //   type: 'ride_request',
+      //   data: { rideId: ride._id }
+      // });
 
       res.status(201).json({
         success: true,
@@ -142,8 +147,8 @@ class RideController {
           estimatedDistance: distance,
           driverInfo: {
             id: driver._id,
-            name: driver.userId.fullName,
-            phone: driver.userId.phoneNumber
+            name: user.fullName,
+            phone: user.phoneNumber
           }
         }
       });
@@ -161,9 +166,11 @@ class RideController {
     try {
       const { rideId } = req.params;
       const driverUserId = req.user.userId; // This is the user ID from auth token
+      console.log(rideId, driverUserId);
 
       // Find driver by userId (not _id)
-      const driver = await Driver.findOne({ userId: driverUserId }).populate('userId', 'fullName phoneNumber');
+      const user = await User.findById(driverUserId);
+      const driver = await Driver.findOne({ userId: driverUserId });
       
       if (!driver) {
         return res.status(404).json({
@@ -181,6 +188,8 @@ class RideController {
 
       // Find the ride
       const ride = await Ride.findById(rideId);
+
+      console.log(driver, user, ride);
       
       if (!ride) {
         return res.status(404).json({
@@ -189,6 +198,7 @@ class RideController {
         });
       }
 
+      console.log('Driver', driver._id.toString(), 'accepting ride', ride.driverId.toString());
       // Check if this ride was requested for this specific driver
       if (ride.driverId.toString() !== driver._id.toString()) {
         return res.status(403).json({
@@ -218,27 +228,27 @@ class RideController {
       driver.currentRideId = ride._id;
       await driver.save();
 
-      const io = req.app.get('io');
+      // const io = req.app.get('io');
 
-      // Notify customer
-      io.to(`user_${ride.customerId}`).emit('ride_accepted', {
-        rideId: ride._id,
-        driver: {
-          id: driver._id,
-          name: driver.userId.fullName,
-          phone: driver.userId.phoneNumber,
-          vehicle: driver.vehicle,
-          rating: driver.ratings?.average || 0,
-          currentLocation: driver.currentLocation
-        }
-      });
+      // // Notify customer
+      // io.to(`user_${ride.customerId}`).emit('ride_accepted', {
+      //   rideId: ride._id,
+      //   driver: {
+      //     id: driver._id,
+      //     name: driver.userId.fullName,
+      //     phone: driver.userId.phoneNumber,
+      //     vehicle: driver.vehicle,
+      //     rating: driver.ratings?.average || 0,
+      //     currentLocation: driver.currentLocation
+      //   }
+      // });
 
-      await sendNotification(ride.customerId, {
-        title: 'Ride Accepted',
-        message: `${driver.userId.fullName} has accepted your ride request`,
-        type: 'ride_accepted',
-        data: { rideId: ride._id }
-      });
+      // await sendNotification(ride.customerId, {
+      //   title: 'Ride Accepted',
+      //   message: `${driver.userId.fullName} has accepted your ride request`,
+      //   type: 'ride_accepted',
+      //   data: { rideId: ride._id }
+      // });
 
       res.json({
         success: true,
@@ -248,7 +258,9 @@ class RideController {
           customerInfo: {
             pickup: ride.pickupLocation,
             dropoff: ride.dropoffLocation,
-            estimatedFare: ride.estimatedFare
+            estimatedFare: ride.estimatedFare,
+            driverName: user.fullName,
+            driverPhone: user.phoneNumber
           }
         }
       });
@@ -296,6 +308,8 @@ class RideController {
       const { rideId } = req.params;
       const { status, location } = req.body;
 
+      console.log(req.body);
+
       const ride = await Ride.findById(rideId);
       if (!ride) {
         return res.status(404).json({
@@ -326,6 +340,7 @@ class RideController {
 
         // Calculate commission
         ride.commission.amount = ride.finalFare * ride.commission.rate;
+        console.log('Final fare:', ride.finalFare, 'Commission:', ride.commission.amount);
 
         // Update driver availability and earnings
         const driver = await Driver.findById(ride.driverId);
@@ -335,12 +350,12 @@ class RideController {
         await driver.save();
 
         // Process payment
-        if (ride.paymentMethod === 'wallet') {
+        if (ride.paymentMethod === 'stripe') {
           const customer = await User.findById(ride.customerId);
           if (customer.wallet.balance >= ride.finalFare) {
             customer.wallet.balance -= ride.finalFare;
             customer.wallet.transactions.push({
-              type: 'debit',
+              type: 'card',
               amount: ride.finalFare,
               description: `Payment for ride ${ride._id}`
             });
@@ -355,12 +370,12 @@ class RideController {
       await ride.save();
 
 
-       const io = req.app.get('io');
-      io.to(`user_${ride.customerId}`).emit('ride_status_update', {
-        rideId: ride._id,
-        status,
-        location
-      });
+      //  const io = req.app.get('io');
+      // io.to(`user_${ride.customerId}`).emit('ride_status_update', {
+      //   rideId: ride._id,
+      //   status,
+      //   location
+      // });
 
       res.json({
         success: true,
@@ -410,18 +425,18 @@ class RideController {
         });
       }
 
-      const io = req.app.get('io');
-      io.to(`user_${ride.customerId}`).emit('ride_cancelled', {
-        rideId: ride._id,
-        reason
-      });
+      // const io = req.app.get('io');
+      // io.to(`user_${ride.customerId}`).emit('ride_cancelled', {
+      //   rideId: ride._id,
+      //   reason
+      // });
 
-      if (ride.driverId) {
-        io.to(`driver_${ride.driverId}`).emit('ride_cancelled', {
-          rideId: ride._id,
-          reason
-        });
-      }
+      // if (ride.driverId) {
+      //   io.to(`driver_${ride.driverId}`).emit('ride_cancelled', {
+      //     rideId: ride._id,
+      //     reason
+      //   });
+      // }
 
       res.json({
         success: true,
@@ -524,18 +539,18 @@ class RideController {
 
 
         // Send notification to driver
-        const io = req.app.get('io');
-        io.to(`driver_${driver.userId}`).emit('new_rating', {
-          rideId: ride._id,
-          rating,
-          newAverage: driver.ratings.average
-        });
-        await sendNotification(driver.userId, {
-          title: 'New Rating Received',
-          message: `You received a ${rating}-star rating`,
-          type: 'rating_received',
-          data: { rideId: ride._id, rating }
-        });
+        // const io = req.app.get('io');
+        // io.to(`driver_${driver.userId}`).emit('new_rating', {
+        //   rideId: ride._id,
+        //   rating,
+        //   newAverage: driver.ratings.average
+        // });
+        // await sendNotification(driver.userId, {
+        //   title: 'New Rating Received',
+        //   message: `You received a ${rating}-star rating`,
+        //   type: 'rating_received',
+        //   data: { rideId: ride._id, rating }
+        // });
 
       } else if (userRole === 'driver') {
         // Initialize rating object if not exists
@@ -554,11 +569,11 @@ class RideController {
         // Update customer rating logic here if needed
 
         // Send notification to customer
-        const io = req.app.get('io');
-        io.to(`user_${ride.customerId}`).emit('new_rating', {
-          rideId: ride._id,
-          rating
-        });
+        // const io = req.app.get('io');
+        // io.to(`user_${ride.customerId}`).emit('new_rating', {
+        //   rideId: ride._id,
+        //   rating
+        // });
       }
 
       await ride.save();

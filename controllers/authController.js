@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const Driver = require('../models/Driver');
 const OTP = require('../models/OTP');
 const { generateOTP, sendOTP } = require('../services/otpService');
 const { validateRegister, validateLogin } = require('../validators/authValidator');
@@ -49,12 +50,12 @@ class AuthController {
     let licenseImage = null;
     let nidImage = null;
     let selfieImage = null;
-    let serviceTypesArray = [];
 
     if (role === "driver") {
       if (
         !licenseNumber ||
         !nidNumber ||
+        !serviceTypes ||
         !req.files?.license ||
         !req.files?.nid ||
         !req.files?.selfie
@@ -64,27 +65,6 @@ class AuthController {
           message: "Driver registration requires all license, NID, and selfie images."
         });
       }
-
-      // Parse service types
-      if (typeof serviceTypes === "string") {
-        try {
-          serviceTypesArray = JSON.parse(serviceTypes);
-        } catch (err) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid serviceTypes format. Must be a valid JSON array."
-          });
-        }
-      } else if (Array.isArray(serviceTypes)) {
-        serviceTypesArray = serviceTypes;
-      }
-
-      // if (serviceTypesArray.length === 0) {
-      //   return res.status(400).json({
-      //     success: false,
-      //     message: "At least one service type is required for drivers."
-      //   });
-      // }
 
       // ✅ Upload images to Cloudinary
       licenseImage = await uploadToCloudinary(req.files.license[0].buffer, "driver_documents");
@@ -104,8 +84,8 @@ class AuthController {
       nidNumber,
       nidImage,
       selfieImage,
-      serviceTypes: role === "driver" ? serviceTypesArray : [],
-      insuranceInformation: role === "driver" ? insuranceInformation : undefined
+      serviceTypes,
+      insuranceInformation
     });
 
     await user.save();
@@ -121,6 +101,13 @@ class AuthController {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000)
     });
 
+    if(role === "driver") {
+      // Additional steps for driver registration can be added here
+      const driver = new Driver({
+        userId: user._id,
+      });
+      await driver.save();
+    }
     return res.status(201).json({
       success: true,
       message:
