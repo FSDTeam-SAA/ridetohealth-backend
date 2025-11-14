@@ -18,7 +18,7 @@ const serviceRoutes = require('./routes/service');
 const notificationRoutes = require('./routes/notification');
 const stripeRoutes = require('./routes/stripeRoutes');
 const webhookController = require('./controllers/webhookController');
-// const initializeSocket = require( './socket.js');
+const { initializeSocket } = require( './socket.js');
 
 
 const logger = require('./utils/logger');
@@ -28,8 +28,8 @@ const { clientUrl, mongoURI, port } = require('./config/config');
 const app = express();
 const server = http.createServer(app);
 
-// const io = initializeSocket(server);
-// app.set('io', io);
+const io = initializeSocket(server);
+app.set('io', io);
 
 app.use(helmet());
 app.use(compression());

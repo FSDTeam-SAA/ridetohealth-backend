@@ -3,10 +3,10 @@
 // // ============================================
 
 const { Server } = require('socket.io');
-const socketHandler = require('./services/socketService.js');
-const logger = require('../utils/logger.js');
+const socketHandler = require('./services/socketService');
+const logger = require('./utils/logger');
 
-export const initializeSocket = (httpServer) => {
+const initializeSocket = (httpServer) => {
   const io = new Server(httpServer, {
     pingTimeout: 60000,
     pingInterval: 25000,
@@ -27,3 +27,5 @@ export const initializeSocket = (httpServer) => {
 
   return io;
 };
+
+module.exports = { initializeSocket }
