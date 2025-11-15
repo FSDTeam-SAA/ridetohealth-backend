@@ -237,6 +237,8 @@ class AdminController {
     try {
 
       const { vehicleId, driverId } = req.params;
+      console.log("vehicleId", vehicleId);
+      console.log("driverId", driverId);
       const vehicle = await Vehicle.findById(vehicleId);
       const driver = await Driver.findById(driverId);
 

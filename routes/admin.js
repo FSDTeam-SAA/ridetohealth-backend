@@ -31,7 +31,7 @@ router.delete('/services/:serviceId', adminController.deleteService);
 
 // Vehicle Management
 router.post('/services/:serviceId/vehicle', adminController.createVehicle);
-router.put('/services/:serviceId/vehicle/:vehicleId', adminController.assignedDriverToVehicle);
+router.put('/services/vehicle', adminController.assignedDriverToVehicle);
 
 // Category Management
 router.post('/categories', uploadFields, adminController.createCategory);
