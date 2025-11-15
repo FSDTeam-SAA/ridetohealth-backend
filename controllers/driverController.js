@@ -81,41 +81,76 @@ class DriverController {
     }
   }
 
-  async updateLocation(req, res) {
+  // ============================================
+// FILE: src/controllers/driverController.js
+// ============================================
+
+async updateLocation(req, res) {
     try {
-      const { latitude, longitude } = req.body;
+      const { latitude, longitude, heading, speed } = req.body;
       const userId = req.user.userId;
 
-      await Driver.findOneAndUpdate(
+      // Validate coordinates
+      if (!latitude || !longitude) {
+        return res.status(400).json({
+          success: false,
+          message: 'Latitude and longitude are required',
+        });
+      }
+
+      // Update database
+      const driver = await Driver.findOneAndUpdate(
         { userId },
         {
           currentLocation: {
-            type: "Point",
+            type: 'Point',
             coordinates: [longitude, latitude],
           },
-        }
+          lastLocationUpdate: new Date(),
+          ...(heading !== undefined && { heading }),
+          ...(speed !== undefined && { speed }),
+        },
+        { new: true }
       );
 
-      // Broadcast location to nearby customers
-      const io = req.app.get("io");
-      io.emit("driver_location_update", {
+      if (!driver) {
+        return res.status(404).json({
+          success: false,
+          message: 'Driver not found',
+        });
+      }
+
+      // Broadcast via Socket.IO
+      const io = req.app.get('io');
+      io.to(`driver:${userId}`).emit('driver-location-update', {
         driverId: userId,
-        location: { latitude, longitude },
+        location: {
+          latitude,
+          longitude,
+          ...(heading !== undefined && { heading }),
+          ...(speed !== undefined && { speed }),
+        },
+        timestamp: new Date().toISOString(),
       });
 
       res.json({
         success: true,
-        message: "Location updated successfully",
+        message: 'Location updated successfully',
+        data: {
+          location: {
+            latitude,
+            longitude,
+          },
+        },
       });
     } catch (error) {
-      logger.error("Update driver location error:", error);
+      logger.error('Update driver location error:', error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: 'Internal server error',
       });
     }
   }
-
   async toggleOnlineStatus(req, res) {
     try {
       const { isOnline } = req.body;
@@ -486,7 +521,7 @@ class DriverController {
 
       // const driver = await Driver.findById(driverId);
       const driver = await Driver.findOne({ userId });
-      console.log(driver);
+      // console.log(driver);
       if (!driver) {
         return res.status(404).json({
           success: false,

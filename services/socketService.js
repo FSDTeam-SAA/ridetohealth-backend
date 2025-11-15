@@ -48,12 +48,39 @@ const socketHandler = (io, socket) => {
     handleStopTyping(socket, data);
   });
 
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    logger.info(`🔴 User disconnected: ${socket.id}`);
+   // === DRIVER LOCATION EVENTS ===
+  
+  // Driver joins tracking system
+  socket.on('join-driver', (driverId) => {
+    handleJoinDriver(socket, driverId);
   });
 
-  // Error handling
+  // Customer starts tracking a driver
+  socket.on('track-driver', (data) => {
+    handleTrackDriver(socket, data);
+  });
+
+  // Customer stops tracking a driver
+  socket.on('stop-tracking-driver', (data) => {
+    handleStopTrackingDriver(socket, data);
+  });
+
+  // Driver sends location update
+  socket.on('update-location', (data) => {
+    handleDriverLocationUpdate(io, socket, data);
+  });
+
+  // === GENERAL EVENTS ===
+  
+  socket.on('disconnect', () => {
+    logger.info(`🔴 User disconnected: ${socket.id}`);
+    
+    // Clean up tracking if customer disconnects
+    if (socket.trackingDriverId) {
+      socket.leave(`driver:${socket.trackingDriverId}`);
+    }
+  });
+
   socket.on('error', (error) => {
     logger.error('❌ Socket error:', error);
   });

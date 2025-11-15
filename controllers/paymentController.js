@@ -169,6 +169,7 @@ class PaymentController {
  async createRidePayment (req, res) {
     try {
       const rideId = req.user.userId; // or your ride/project id
+      
       const { amount, stripeDriverId, driverId, title } = req.body;
 
       if (!amount || !stripeDriverId || !driverId) {
