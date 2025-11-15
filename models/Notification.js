@@ -1,27 +1,25 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-  userId: {
+  senderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  receiverId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
   title: {
     type: String,
-    required: true
   },
   message: {
     type: String,
-    required: true
   },
   type: {
     type: String,
-    enum: ['ride_request', 'ride_accepted', 'ride_completed', 'payment', 'promotion', 'system', 'rating_received'],
-    required: true
-  },
-  data: {
-    type: mongoose.Schema.Types.Mixed,
-    default: {}
+    enum: ['ride_request', 'ride_accepted', 'ride_completed', 'payment', 'promotion', 'system', 'rating_received', 'driver_request', "request_approved", "request_rejected"],
   },
   isRead: {
     type: Boolean,

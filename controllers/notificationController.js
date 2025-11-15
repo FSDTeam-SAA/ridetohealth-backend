@@ -3,43 +3,79 @@ const { sendNotification } = require('../services/notificationService');
 const logger = require('../utils/logger');
 
 class NotificationController {
-  async getNotifications(req, res) {
+
+ async sendNotification(req, res) {
     try {
-      const { page = 1, limit = 20 } = req.query;
-      const userId = req.user.userId;
+      const { receiverId, title, message, type } = req.body;
+      const senderId = req.user.userId;
 
-      const notifications = await Notification.find({ userId })
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
-
-      const unreadCount = await Notification.countDocuments({ 
-        userId, 
-        isRead: false 
+      const notification = await sendNotification({
+        senderId,
+        receiverId,
+        title,
+        message,
+        type,
       });
 
-      const total = await Notification.countDocuments({ userId });
+      // console.log('Notification sent:', notification);
+
+      res.json({
+        success: true,
+        message: 'Notification sent successfully',
+        notification,
+      });
+    } catch (error) {
+      logger.error('Send notification error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+      });
+    }
+  }
+
+ async getNotifications(req, res) {
+    try {
+      const userId = req.user.userId; // logged-in user
+      const { page = 1, limit = 10 } = req.query;
+
+      // Fetch notifications where user is either sender or receiver
+      const filter = {
+        $or: [
+          { senderId: userId },
+          { receiverId: userId }
+        ]
+      };
+
+      const notifications = await Notification.find(filter)
+        .populate("senderId", "fullName profileImage")    // sender details
+        .populate("receiverId", "fullName profileImage")  // receiver details
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit));
+
+      const total = await Notification.countDocuments(filter);
 
       res.json({
         success: true,
         data: {
           notifications,
-          unreadCount,
           pagination: {
-            current: page,
-            pages: Math.ceil(total / limit),
+            current: parseInt(page),
+            pages: Math.ceil(total / parseInt(limit)),
             total
           }
         }
       });
+
     } catch (error) {
-      logger.error('Get notifications error:', error);
+      logger.error("Get notifications error:", error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: "Internal server error"
       });
     }
   }
+
 
   async markAsRead(req, res) {
     try {

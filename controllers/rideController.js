@@ -598,6 +598,8 @@ class RideController {
       });
     }
   }
+
+  
 }
 
 module.exports = new RideController();

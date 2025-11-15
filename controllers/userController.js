@@ -31,7 +31,7 @@ class UserController {
   async updateProfile(req, res) {
     try {
       const userId = req.user.userId;
-      const { fullName, email, phoneNumber } = req.body;
+      const { fullName, email, phoneNumber, country, city, state, zipcode, street_address } = req.body;
 
       // Find user first
       const user = await User.findById(userId);
@@ -47,6 +47,11 @@ class UserController {
       if (fullName) user.fullName = fullName;
       if (email) user.email = email;
       if (phoneNumber) user.phoneNumber = phoneNumber;
+      if (country) user.country = country;
+      if (city) user.city = city;
+      if (state) user.state = state;
+      if (zipcode) user.zipcode = zipcode;
+      if (street_address) user.street_address = street_address;
 
       await user.save();
 
