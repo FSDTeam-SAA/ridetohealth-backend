@@ -5,6 +5,7 @@ const { uploadToCloudinary } = require("../services/cloudinaryService");
 const logger = require("../utils/logger");
 const Stripe = require("stripe");
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const Notification = require("../models/Notification");
 
 class DriverController {
 
@@ -149,24 +150,50 @@ class DriverController {
 
   async getTripHistory(req, res) {
     try {
-      const { page = 1, limit = 10, status } = req.query; // Accept status filter
+      const { page = 1, limit = 10, status } = req.query;
       const userId = req.user.userId;
+      const role = req.user.role; // <-- assuming token contains role
 
-      const driver = await Driver.findOne({ userId });
-      if (!driver) {
+      // Check User Exists
+      const user = await User.findById(userId);
+      if (!user) {
         return res.status(404).json({
           success: false,
-          message: "Driver profile not found",
+          message: "User not found",
         });
       }
 
-      // Build query dynamically
-      const query = { driverId: driver.userId };
+      // ==========================
+      // 🔥 BUILD ROLE-BASED QUERY
+      // ==========================
+      let query = {};
+
+      if (role === "driver") {
+        const driver = await Driver.findOne({ userId });
+
+        if (!driver) {
+          return res.status(404).json({
+            success: false,
+            message: "Driver profile not found",
+          });
+        }
+
+        query.driverId = driver.userId; // only own rides
+      }
+
+      // Admin → gets all rides (no driver filter)
+      // Driver → gets only his rides (query.driverId already added)
+
+      // ==========================
+      // 🔥 STATUS FILTER (optional)
+      // ==========================
       if (status) {
-        // Use regex for case-insensitive partial matching
         query.status = { $regex: status, $options: "i" };
       }
 
+      // ==========================
+      // 🔥 FETCH DATA
+      // ==========================
       const rides = await Ride.find(query)
         .populate("customerId", "fullName profileImage")
         .populate("serviceId", "name category")
@@ -187,14 +214,17 @@ class DriverController {
           },
         },
       });
+
     } catch (error) {
-      logger.error("Get driver trip history error:", error);
+      logger.error("Get trip history error:", error);
+
       res.status(500).json({
         success: false,
         message: "Internal server error",
       });
     }
   }
+
 
   async getEarnings(req, res) {
     try {
@@ -411,8 +441,9 @@ class DriverController {
     try {
 
       const userId = req.user.userId;
-      const { message } = req.body;
-      const driver = await User.findById({ userId });
+      const { title, message, type} = req.body;
+      const driver = await User.findById(userId);
+      const driverId = driver._id;  
 
       if (!driver) {  
         return res.status(404).json({
@@ -421,11 +452,20 @@ class DriverController {
         });
       } 
 
+      // Create a new notification
+      const newNotification = new Notification({
+        userId: userId,
+        title: title || "Driver Request",
+        message: message || "Driver has sent a request to admin.",
+        type: type || "driver_request",
+        data: { driverId: driverId, fullName: driver.fullName, email: driver.email },
+      });
+      await newNotification.save();
+
       res.json({
         success: true,
         message: "Request sent to admin successfully",
-        data: driver,
-        message: message
+        data: newNotification
       });
     } catch (error) {
       console.error("Send request to admin error:", error);

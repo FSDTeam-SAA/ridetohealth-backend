@@ -1,14 +1,9 @@
 // models/PromoCode.js
 const mongoose = require('mongoose');
 
-const promoCodeSchema = new mongoose.Schema({
+const commissionSchema = new mongoose.Schema({
   title: {
     type: String,
-  },
-  code: {
-    type: String,
-    required: true,
-    unique: true
   },
   description: String,
   discountType: {
@@ -16,44 +11,22 @@ const promoCodeSchema = new mongoose.Schema({
     enum: ['percentage', 'fixed'],
     default: 'percentage'
   },
-  discountValue: {
+  commission: {
     type: Number,
     required: true
   },
-  startDate:{
+  date:{
     type: Date,
-    required: true
-  },
-  expiryDate:{
-    type: Date,
-    required: true
+    default: Date.now
   },
   status: {
     type: String,
     enum: ['active', 'inactive', 'expired'],
     default: 'active'
   },
-  maxDiscount: {
-    type: Number,
-    default: null
-  },
-  minimumOrderValue: {
-    type: Number,
-    default: 0
-  },
-  usageLimit: {
-    type: Number,
-    default: null
-  },
   usedCount: {
     type: Number,
     default: 0
-  },
-  validFrom: {
-    type: Date,
-  },
-  validUntil: {
-    type: Date,
   },
   applicableServices: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -74,4 +47,4 @@ const promoCodeSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('PromoCode', promoCodeSchema);
+module.exports = mongoose.model('Commission', commissionSchema);

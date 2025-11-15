@@ -4,6 +4,7 @@ const Ride = require('../models/Ride');
 const Service = require('../models/Service');
 const Vehicle = require('../models/Vehicle');
 const PromoCode = require('../models/PromoCode');
+const Commission = require('../models/Commission');
 const Report = require('../models/Report');
 const Notification = require('../models/Notification');
 const { sendNotification } = require('../services/notificationService');
@@ -237,8 +238,10 @@ class AdminController {
     try {
 
       const { vehicleId, driverId } = req.params;
+
       console.log("vehicleId", vehicleId);
       console.log("driverId", driverId);
+
       const vehicle = await Vehicle.findById(vehicleId);
       const driver = await Driver.findById(driverId);
 
@@ -254,133 +257,170 @@ class AdminController {
       await driver.save();
 
       res.json({ success: true, message: 'Driver assigned to vehicle successfully', data: { vehicle, driver } });
+
     } catch (error) {
       logger.error('Assign driver to vehicle error:', error);
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
+
+
   // === Promo Code Management ===
   async createPromoCode(req, res) {
     try {
-      const promo = new PromoCode({ ...req.body, createdBy: req.user.userId });
-      await promo.save();
-      res.status(201).json({ success: true, message: 'Promo code created successfully', data: promo });
-    } catch (error) {
-      logger.error('Create promo code error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
+      const { discountValue, startDate, expiryDate, status } = req.body;
 
-  async getPromoCodes(req, res) {
-    try {
-      const { page = 1, limit = 10 } = req.query;
-      const promoCodes = await PromoCode.find()
-        .populate('createdBy', 'fullName')
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
+      // ---------------------------
+      // 🔥 Step 1: Generate unique code
+      // ---------------------------
+      let code;
+      let isUnique = false;
 
-      const total = await PromoCode.countDocuments();
+      while (!isUnique) {
+        // Generate 6-digit code
+        code = Math.floor(100000 + Math.random() * 900000).toString();
 
-      res.json({
-        success: true,
-        data: {
-          promoCodes,
-          pagination: { current: +page, pages: Math.ceil(total / limit), total }
-        }
-      });
-    } catch (error) {
-      logger.error('Get promo codes error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
+        // Check if exists
+        const existing = await PromoCode.findOne({ code });
 
-  // === Reports ===
-  async getReports(req, res) {
-    try {
-      const { page = 1, limit = 10, status } = req.query;
-      const filter = status ? { status } : {};
-
-      const reports = await Report.find(filter)
-        .populate('reportedBy', 'fullName email')
-        .populate('reportedUser', 'fullName email')
-        .populate('rideId')
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
-
-      const total = await Report.countDocuments(filter);
-
-      res.json({
-        success: true,
-        data: {
-          reports,
-          pagination: { current: +page, pages: Math.ceil(total / limit), total }
-        }
-      });
-    } catch (error) {
-      logger.error('Get reports error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
-
-  async updateReport(req, res) {
-    try {
-      const { reportId } = req.params;
-      const { status, adminNotes } = req.body;
-
-      const report = await Report.findByIdAndUpdate(
-        reportId,
-        {
-          status,
-          adminNotes,
-          resolvedBy: req.user.userId,
-          resolvedAt: status === 'resolved' ? new Date() : undefined
-        },
-        { new: true }
-      );
-
-      if (!report) return res.status(404).json({ success: false, message: 'Report not found' });
-
-      res.json({ success: true, message: 'Report updated successfully', data: report });
-    } catch (error) {
-      logger.error('Update report error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
-
-  // === Users ===
-  async getAllUsers(req, res) {
-    try {
-      const { page = 1, limit = 10, search, role } = req.query;
-      const filter = {};
-      if (search) {
-        filter.$or = [
-          { fullName: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-          { phoneNumber: { $regex: search, $options: 'i' } }
-        ];
+        if (!existing) isUnique = true; // Unique found
       }
-      if (role) filter.role = role;
 
-      const users = await User.find(filter)
-        .select('-password')
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
-
-      const total = await User.countDocuments(filter);
-
-      res.json({
-        success: true,
-        data: {
-          users,
-          pagination: { current: +page, pages: Math.ceil(total / limit), total }
-        }
+      // ---------------------------
+      // 🔥 Step 2: Create Promo Code
+      // ---------------------------
+      const promo = new PromoCode({
+        code : "PROMO-" + code,
+        discountValue,
+        startDate,
+        expiryDate,
+        status,
+        createdBy: req.user.userId
       });
+      // console.log("Promo Code Data:", promo);
+
+      await promo.save();
+
+      res.status(201).json({
+        success: true,
+        message: "Promo code created successfully",
+        data: promo
+      });
+
     } catch (error) {
-      logger.error('Get all users error:', error);
+      logger.error("Create promo code error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error"
+      });
+    }
+  }
+
+
+ async getPromoCodes(req, res) {
+  try {
+    const { page = 1, limit = 10, status } = req.query;
+
+    // -------------------------
+    // 🔥 Build dynamic query
+    // -------------------------
+    let query = {};
+
+    if (status) {
+      query.status = { $regex: status, $options: "i" }; 
+      // matches: active, Active, ACTIVE, pending, etc.
+    }
+
+    const promoCodes = await PromoCode.find(query)
+      .populate("createdBy", "fullName")
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const total = await PromoCode.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: {
+        promoCodes,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(total / parseInt(limit)),
+          total,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Get promo codes error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
+
+  async deletePromoCode(req, res) {
+    try {
+
+      const { promoCodeId } = req.params;
+      console.log("promoCodeId", promoCodeId);
+      const promoCode = await PromoCode.findByIdAndDelete(promoCodeId);
+
+      if (!promoCode) { 
+        return res.status(404).json({ success: false, message: 'Promo code not found' });
+      }
+
+      res.json({ success: true, message: 'Promo code deleted successfully' });
+
+    } catch (error) {
+      logger.error('Delete promo code error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  async updatePromoCode(req, res) {
+    try {
+      const { promoCodeId } = req.params;
+      const updateData = req.body;
+      const promoCode = await PromoCode.findByIdAndUpdate(
+        promoCodeId,
+        updateData,
+        { new: true, runValidators: true }
+      );
+      if (!promoCode) {
+        return res.status(404).json({ success: false, message: 'Promo code not found' });
+      }
+      res.json({ success: true, message: 'Promo code updated successfully', data: promoCode });
+    } catch (error) {
+      logger.error('Update promo code error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  //commission management
+
+  async createCommission(req, res) {
+    try {
+
+      const { title, description, discountType, commission, applicableServices, status } = req.body;
+
+      const newCommission = new Commission({
+        title,
+        description,
+        discountType,
+        commission,
+        applicableServices,
+        status,
+        createdBy: req.user.userId
+      });
+
+      await newCommission.save();
+
+      res.status(201).json({ success: true, message: 'Commission created successfully', data: newCommission });
+
+    } catch (error) {
+      logger.error('Create commission error:', error);
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
@@ -424,105 +464,179 @@ class AdminController {
     }
   }
 
-  // === CATEGORY MANAGEMENT ===
 
-  async createCategory(req, res) {
+
+  // === Users ===
+ // === Users ===
+  async getAllUsers(req, res) {
     try {
-      const { name } = req.body;
-      if (!req.files?.serviceImage?.[0]) {
-        return res.status(400).json({ success: false, message: 'Image is required' });
+      const { page = 1, limit = 10, search } = req.query;
+
+      // -----------------------------------
+      // 🔥 Only customers
+      // -----------------------------------
+      const filter = { role: "customer" };
+
+      // -----------------------------------
+      // 🔍 Search if provided
+      // -----------------------------------
+      if (search) {
+        filter.$or = [
+          { fullName: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+          { phoneNumber: { $regex: search, $options: "i" } },
+        ];
       }
 
-      const buffer = req.files.serviceImage[0].buffer;
-      const categoryImage = await uploadToCloudinary(buffer, 'categories');
+      // -----------------------------------
+      // 🔥 Fetch customers
+      // -----------------------------------
+      const customers = await User.find(filter)
+        .select("-password")
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit));
 
-      const category = await Category.create({ name, categoryImage });
+      const total = await User.countDocuments(filter);
 
-      res.status(201).json({ success: true, data: category });
+      // -----------------------------------
+      // 🔥 Fetch rides for all customers
+      // -----------------------------------
+      const customerIds = customers.map((c) => c._id);
+
+      const rides = await Ride.find({ customerId: { $in: customerIds } }).sort({ createdAt: -1 });
+
+      // -----------------------------------
+      // 🔥 Group rides by customer
+      // -----------------------------------
+      const rideMap = {};
+      const completedRideCount = {};
+
+      rides.forEach((ride) => {
+        const cId = ride.customerId.toString();
+
+        // group ride history
+        if (!rideMap[cId]) rideMap[cId] = [];
+        rideMap[cId].push(ride);
+
+        // count completed rides
+        if (ride.status === "completed") {
+          if (!completedRideCount[cId]) completedRideCount[cId] = 0;
+          completedRideCount[cId]++;
+        }
+      });
+
+      // -----------------------------------
+      // 🔥 Attach rideHistory + completed count
+      // -----------------------------------
+      const enrichedCustomers = customers.map((customer) => {
+        const cId = customer._id.toString();
+        return {
+          ...customer.toObject(),
+          rideHistory: rideMap[cId] || [],
+          totalCompletedRides: completedRideCount[cId] || 0,
+        };
+      });
+
+      // -----------------------------------
+      // ✅ Response
+      // -----------------------------------
+      res.json({
+        success: true,
+        data: {
+          users: enrichedCustomers,
+          pagination: {
+            current: parseInt(page),
+            pages: Math.ceil(total / parseInt(limit)),
+            total,
+          },
+        },
+      });
+
     } catch (error) {
-      logger.error('Create category error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      logger.error("Get all users error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+  async getUserById(req, res) {
+    try {
+      const { userId } = req.params;
+
+      // --------------------------
+      // 🔹 Get user
+      // --------------------------
+      const user = await User.findById(userId).select("-password");
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      // --------------------------
+      // 🔹 Get all rides for this user
+      // --------------------------
+      const rides = await Ride.find({ customerId: user._id }).sort({ createdAt: -1 });
+
+      // --------------------------
+      // 🔹 Count completed rides
+      // --------------------------
+      const totalCompletedRides = rides.filter((ride) => ride.status === "completed").length;
+
+      // --------------------------
+      // 🔹 Return user with ride data
+      // --------------------------
+      res.json({
+        success: true,
+        data: {
+          ...user.toObject(),
+          rideHistory: rides,
+          totalCompletedRides,
+        },
+      });
+
+    } catch (error) {
+      logger.error("Get user by ID error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
     }
   }
 
-  async getAllCategories(req, res) {
+  //notifications management
+  async getNotifications(req, res) {
     try {
-      const { page = 1, limit = 10 } = req.query;
-      const categories = await Category.find()
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
 
-      const total = await Category.countDocuments();
+      const { page = 1, limit = 10 } = req.query;
+      const notifications = await Notification.find()
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit));
+        
+      const total = await Notification.countDocuments();
 
       res.json({
         success: true,
         data: {
-          categories,
-          pagination: { current: +page, pages: Math.ceil(total / limit), total }
-        }
+          notifications,
+          pagination: {
+            current: parseInt(page),
+            pages: Math.ceil(total / parseInt(limit)),
+            total,
+          },
+        },
       });
     } catch (error) {
-      logger.error('Get categories error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
-
-  async getCategoryById(req, res) {
-    try {
-      const { categoryId } = req.params;
-      const category = await Category.findById(categoryId);
-      if (!category)
-        return res.status(404).json({ success: false, message: 'Category not found' });
-      
-      const services = await Service.find({ category: category._id });
-      const categoryWithServices = {
-        ...category.toObject(),
-        services,
-      };
-      res.status(200).json({ success: true, data: categoryWithServices });
-    } catch (error) {
-      logger.error('Get category by ID error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
-
-
-  async updateCategory(req, res) {
-    try {
-      const { categoryId } = req.params;
-      const { name } = req.body;
-      let categoryImage;
-
-      if (req.files?.serviceImage?.[0]) {
-        const buffer = req.files.serviceImage[0].buffer;
-        categoryImage = await uploadToCloudinary(buffer, 'categories');
-      }
-
-      const updatedData = { name };
-      if (categoryImage) updatedData.categoryImage = categoryImage;
-
-      const category = await Category.findByIdAndUpdate(categoryId, updatedData, { new: true });
-
-      if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
-
-      res.json({ success: true, data: category });
-    } catch (error) {
-      logger.error('Update category error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
-
-  async deleteCategory(req, res) {
-    try {
-      const { categoryId } = req.params;
-      const category = await Category.findByIdAndDelete(categoryId);
-      if (!category) return res.status(404).json({ success: false, message: 'Category not found' });
-
-      res.json({ success: true, message: 'Category deleted successfully' });
-    } catch (error) {
-      logger.error('Delete category error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      logger.error("Get notifications error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
     }
   }
 }

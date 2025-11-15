@@ -25,6 +25,6 @@ router.post('/withdrawal', driverController.requestWithdrawal);
 router.get('/reviews', driverController.getReviews);
 router.get('/get-vehicle', driverController.getVehicleInfo);
 router.get('/get-login-history', driverController.loginHistory);
-router.get('/send-request-to-admin', driverController.sendRequestToAdmin);
+router.post('/send-request-to-admin', driverController.sendRequestToAdmin);
 
 module.exports = router;

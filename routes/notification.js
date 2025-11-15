@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
+router.post('/', notificationController.sendNotification);
 router.get('/', notificationController.getNotifications);
 router.put('/:notificationId/read', notificationController.markAsRead);
 router.put('/read-all', notificationController.markAllAsRead);
