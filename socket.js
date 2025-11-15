@@ -3,7 +3,7 @@
 // // ============================================
 
 const { Server } = require('socket.io');
-const socketHandler = require('./services/socketService');
+const { socketHandler } = require('./services/socketService');
 const logger = require('./utils/logger');
 
 const initializeSocket = (httpServer) => {
