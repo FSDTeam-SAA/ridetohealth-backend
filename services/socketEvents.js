@@ -3,9 +3,6 @@
 // ============================================
 
 const logger = require('../utils/logger.js');
-const Driver = require('../models/Driver.js');
-const { calculateFare, calculateDistance } = require('../services/fareService');
-
 
 const handleJoinUser = (socket, senderId) => {
   socket.join(`user:${senderId}`);
