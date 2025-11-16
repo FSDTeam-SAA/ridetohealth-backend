@@ -10,6 +10,10 @@ const {
   handleTyping,
   handleStopTyping,
   handleLeaveChat,
+  handleJoinDriver,
+  handleTrackDriver,
+  handleStopTrackingDriver,
+  handleDriverLocationUpdate
 } = require('./socketEvents.js');
 
 const socketHandler = (io, socket) => {
@@ -48,7 +52,7 @@ const socketHandler = (io, socket) => {
     handleStopTyping(socket, data);
   });
 
-   // === DRIVER LOCATION EVENTS ===
+  // === DRIVER LOCATION EVENTS ===
   
   // Driver joins tracking system
   socket.on('join-driver', (driverId) => {
