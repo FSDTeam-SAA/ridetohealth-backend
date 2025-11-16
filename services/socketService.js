@@ -20,9 +20,9 @@ const socketHandler = (io, socket) => {
   logger.info(`🟢 New socket connection: ${socket.id}`);
   
   // User joins their personal room
-  socket.on('join', (senderId) => {
-    if (senderId) {
-      handleJoinUser(socket, senderId);
+  socket.on('join', (data) => {
+    if (data.senderId) {
+      handleJoinUser(socket, data.senderId);
     } else {
       logger.error("❌ Join event received without senderId");
     }
