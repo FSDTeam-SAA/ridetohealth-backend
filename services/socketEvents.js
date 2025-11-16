@@ -3,6 +3,9 @@
 // ============================================
 
 const logger = require('../utils/logger.js');
+const Driver = require('../models/Driver.js');
+const { calculateFare, calculateDistance } = require('../services/fareService');
+
 
 const handleJoinUser = (socket, senderId) => {
   socket.join(`user:${senderId}`);
@@ -81,19 +84,27 @@ const handleLeaveChat = (socket, data) => {
 };
 
 /**
- * Handle driver joining their tracking room
- * Drivers join a room to broadcast their location
+ * Handle driver joining the tracking system
+ * Driver joins their own room to broadcast location updates
  */
-const handleJoinDriver = async (socket, driverId) => {
+const handleJoinDriver = async (socket, driverData) => {
   try {
+    // Extract actual driverId string
+    const driverId = driverData?.driverId || driverData;
+
+    // Create driver room
     socket.join(`driver:${driverId}`);
-    socket.driverId = driverId; // Store driverId in socket for later use
-    
+    socket.driverId = driverId;
+
+    console.log('Driver ID in socket:', driverId);
+    console.log('Driver room joined:', `driver:${driverId}`);
+
     logger.info(`🚗 Driver ${driverId} joined tracking room: driver:${driverId}`);
-    
-    // Fetch and emit current driver location
+
+    // Fetch driver from DB
     const driver = await Driver.findOne({ userId: driverId });
-    if (driver && driver.currentLocation) {
+    
+    if (driver?.currentLocation) {
       socket.emit('location-connected', {
         location: {
           latitude: driver.currentLocation.coordinates[1],
@@ -111,22 +122,62 @@ const handleJoinDriver = async (socket, driverId) => {
  * Handle customer tracking a specific driver
  * Customer joins driver's room to receive location updates
  */
-const handleTrackDriver = (socket, data) => {
+const handleTrackDriver = async (socket, data) => {
   try {
-    const { customerId, driverId } = data;
+    const { customerId, driverId, customerLat, customerLng } = data;
+    console.log('Tracking data received:', data);
 
-    if (!customerId || !driverId) {
-      socket.emit('error', { message: 'Missing customerId or driverId' });
+    // FIXED VALIDATION - check for undefined/null but allow 0
+    if (
+      !customerId ||
+      !driverId ||
+      customerLat === undefined ||
+      customerLat === null ||
+      customerLng === undefined ||
+      customerLng === null
+    ) {
+      socket.emit('error', { message: 'Missing required fields' });
+      return;
+    }
+
+    // Validate coordinates are reasonable (not at null island)
+    if (customerLat === 0 && customerLng === 0) {
+      logger.warn(`⚠️ Customer ${customerId} sent invalid coordinates [0,0]`);
+      socket.emit('error', { message: 'Invalid customer location coordinates' });
       return;
     }
 
     socket.join(`driver:${driverId}`);
     socket.customerId = customerId;
+    socket.customerLat = customerLat;
+    socket.customerLng = customerLng;
     socket.trackingDriverId = driverId;
 
     logger.info(`👀 Customer ${customerId} tracking driver: ${driverId}`);
-    
-    socket.emit('tracking-started', { driverId });
+
+    // Fetch driver's current stored location
+    const driver = await Driver.findOne({ userId: driverId }).select('currentLocation');
+    console.log('Driver fetched for tracking:', driver);
+
+    if (driver?.currentLocation) {
+      const driverLat = driver.currentLocation.coordinates[1];
+      const driverLng = driver.currentLocation.coordinates[0];
+
+      // Calculate distance
+      const distanceKm = calculateDistance(
+        [customerLng, customerLat],
+        [driverLng, driverLat]
+      );
+      
+      socket.emit('tracking-started', {
+        driverId,
+        distanceKm,
+        driverLocation: { lat: driverLat, lng: driverLng }
+      });
+    } else {
+      socket.emit('tracking-started', { driverId, distanceKm: null });
+    }
+
   } catch (err) {
     logger.error('❌ Error in handleTrackDriver:', err);
     socket.emit('error', { message: 'Failed to track driver' });
@@ -158,7 +209,7 @@ const handleStopTrackingDriver = (socket, data) => {
 
 /**
  * Handle real-time driver location updates
- * Broadcasts location to all tracking customers
+ * Broadcasts location to all tracking customers (FIXED)
  */
 const handleDriverLocationUpdate = async (io, socket, data) => {
   try {
@@ -190,24 +241,50 @@ const handleDriverLocationUpdate = async (io, socket, data) => {
       { new: true }
     );
 
-    // Broadcast to all customers tracking this driver
-    io.to(`driver:${driverId}`).emit('driver-location-update', {
-      driverId,
-      location: {
-        latitude,
-        longitude,
-        ...(heading !== undefined && { heading }),
-        ...(speed !== undefined && { speed }),
-      },
-      timestamp: new Date().toISOString(),
-    });
+    // FIXED: Get all sockets in the driver's room
+    const driverRoom = `driver:${driverId}`;
+    const socketsInRoom = await io.in(driverRoom).fetchSockets();
 
-    logger.info(`📍 Driver ${driverId} location updated: [${latitude}, ${longitude}]`);
+    logger.info(`📍 Broadcasting to ${socketsInRoom.length} clients in room ${driverRoom}`);
+
+    // Broadcast to each customer with personalized distance
+    for (const clientSocket of socketsInRoom) {
+      // Skip the driver's own socket
+      if (clientSocket.id === socket.id) {
+        continue;
+      }
+
+      // Calculate distance for this specific customer
+      let distanceKm = null;
+      if (clientSocket.customerLat && clientSocket.customerLng) {
+        distanceKm = calculateDistance(
+          [clientSocket.customerLng, clientSocket.customerLat],
+          [longitude, latitude]
+        );
+      }
+
+      // Send personalized update to this customer
+      clientSocket.emit('driver-location-update', {
+        driverId,
+        location: {
+          latitude,
+          longitude,
+          ...(heading !== undefined && { heading }),
+          ...(speed !== undefined && { speed }),
+        },
+        distanceKm,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    logger.info(`📍 Driver ${driverId} location broadcast to ${socketsInRoom.length - 1} customers: [${latitude}, ${longitude}]`);
+    
   } catch (err) {
     logger.error('❌ Error in handleDriverLocationUpdate:', err);
     socket.emit('error', { message: 'Failed to update location' });
   }
 };
+
 
 module.exports = {
   handleJoinUser,

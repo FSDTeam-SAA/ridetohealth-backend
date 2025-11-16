@@ -120,19 +120,6 @@ async updateLocation(req, res) {
         });
       }
 
-      // Broadcast via Socket.IO
-      const io = req.app.get('io');
-      io.to(`driver:${userId}`).emit('driver-location-update', {
-        driverId: userId,
-        location: {
-          latitude,
-          longitude,
-          ...(heading !== undefined && { heading }),
-          ...(speed !== undefined && { speed }),
-        },
-        timestamp: new Date().toISOString(),
-      });
-
       res.json({
         success: true,
         message: 'Location updated successfully',

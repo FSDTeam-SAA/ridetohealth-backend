@@ -1,4 +1,5 @@
 const calculateDistance = (coord1, coord2) => {
+  console.log('Calculating distance between:', coord1, coord2);
   const R = 6371; // Earth's radius in kilometers
   const dLat = (coord2[1] - coord1[1]) * Math.PI / 180;
   const dLon = (coord2[0] - coord1[0]) * Math.PI / 180;

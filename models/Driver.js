@@ -14,10 +14,27 @@ const driverSchema = new mongoose.Schema({
   stripeDriverId: {
     type:String
   },
+  currentRideId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Ride',
+  },
+  currentLocation: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      default: [0, 0]
+    },
+    address: String
+  },
   paymentMethods: [{
     type: {
       type: String,
-      enum: ['card', 'paypal']
+      enum: ['card', 'paypal', 'stripe'],
+      default: 'card'
     },
     cardNumber: String,
     cardHolderName: String,
@@ -98,12 +115,8 @@ const driverSchema = new mongoose.Schema({
     type: Number, // GPS accuracy in meters
     default: null
   },
-  currentRideId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Ride',
-  },
 
- 
+
 });
 
 driverSchema.index({ currentLocation: '2dsphere' });

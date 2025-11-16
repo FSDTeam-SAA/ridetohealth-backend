@@ -121,22 +121,22 @@ class RideController {
       await ride.save();
 
       // Send immediate notification to the selected driver
-      // const io = req.app.get('io');
-      // io.to(`driver_${driver.userId._id}`).emit('ride_request', {
-      //   rideId: ride._id,
-      //   pickup: pickupLocation,
-      //   dropoff: dropoffLocation,
-      //   estimatedFare: fare,
-      //   distance,
-      //   customerName: req.user.fullName || 'Customer'
-      // });
+      const io = req.app.get('io');
+      io.to(`driver_${driver.user._id}`).emit('ride_request', {
+        rideId: ride._id,
+        pickup: pickupLocation,
+        dropoff: dropoffLocation,
+        estimatedFare: fare,
+        distance,
+        customerName: req.user.fullName || 'Customer'
+      });
 
-      // await sendNotification(driver.userId._id, {
-      //   title: 'New Ride Request',
-      //   message: `New ride request from ${pickupLocation.address}`,
-      //   type: 'ride_request',
-      //   data: { rideId: ride._id }
-      // });
+      const notification = await sendNotification(driver.userId._id, {
+        title: 'New Ride Request',
+        message: `New ride request from ${pickupLocation.address}`,
+        type: 'ride_request',
+        data: { rideId: ride._id }
+      });
 
       res.status(201).json({
         success: true,
@@ -150,7 +150,8 @@ class RideController {
             name: user.fullName,
             phone: user.phoneNumber
           }
-        }
+        },
+        notification: notification
       });
 
     } catch (error) {
