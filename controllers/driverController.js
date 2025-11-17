@@ -1,6 +1,7 @@
 const Driver = require("../models/Driver");
 const User = require("../models/User");
 const Ride = require("../models/Ride");
+const Vehicle = require("../models/Vehicle");
 const { uploadToCloudinary } = require("../services/cloudinaryService");
 const logger = require("../utils/logger");
 const Stripe = require("stripe");
@@ -13,18 +14,27 @@ class DriverController {
     try {
       const userId = req.user.userId;
 
-      const driver = await User.findById(userId);
+      const user = await User.findById(userId).select("-currentLocation -password");
 
-      if (!driver) {
+      if (!user) {
         return res.status(404).json({
           success: false,
           message: "Driver profile not found",
         });
       }
+      const driver = await Driver.findOne({ userId });
+
+      if (!driver) {  
+        return res.status(404).json({
+          success: false,
+          message: "Driver not found",
+        });
+      }
 
       res.json({
         success: true,
-        data: driver,
+        profileData: user,
+        driverData: driver,
       });
     } catch (error) {
       logger.error("Get driver profile error:", error);
@@ -97,6 +107,8 @@ async updateLocation(req, res) {
           message: 'Latitude and longitude are required',
         });
       }
+
+      console.log(req.body);
 
       // Update database
       const driver = await Driver.findOneAndUpdate(
@@ -432,9 +444,7 @@ async updateLocation(req, res) {
         });
       }
 
-      const driver = await Driver.findOne({ userId }).select(
-        "vehicle"
-      );
+      const driver = await Driver.findOne({ userId });
 
       if (!driver) {
         return res.status(404).json({
@@ -442,11 +452,22 @@ async updateLocation(req, res) {
           message: "Driver not found",
         });
       }
+      console.log("driver_userId", driver);
 
+      const vehicle = await Vehicle.findOne({ driverId: driver._id });
+
+      console.log("vehicle", vehicle);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          message: "Vehicle not found",
+        });
+      }
       res.json({
         success: true,
         message: "Vehicle information fetched successfully",
-        vehicle: driver,
+        vehicle: vehicle,
         licenseNumber: user.licenseNumber,
         licenseImage: user.licenseImage,
       });
@@ -464,7 +485,7 @@ async updateLocation(req, res) {
 
       const userId = req.user.userId;
       const { title, message, type} = req.body;
-      const driver = await User.findById(userId);
+      const driver = await User.findOne({ userId });
       const driverId = driver._id;  
 
       if (!driver) {  
@@ -476,7 +497,7 @@ async updateLocation(req, res) {
 
       // Create a new notification
       const newNotification = new Notification({
-        userId: userId,
+        senderId: userId,
         title: title || "Driver Request",
         message: message || "Driver has sent a request to admin.",
         type: type || "driver_request",

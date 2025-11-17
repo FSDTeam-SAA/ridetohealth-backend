@@ -157,31 +157,6 @@ class AdminController {
     }
   }
 
-  async createVehicle(req, res) {
-    try {
-      const { serviceId } = req.params;
-      const { taxiName, color, model, plateNumber, year, vin } = req.body;
-
-      const createVehicle = new Vehicle({
-        serviceId, 
-        taxiName, 
-        color, 
-        model,
-        plateNumber, 
-        year, 
-        vin
-       });
-
-      await createVehicle.save();
-
-      res.json({ success: true, message: 'Vehicle updated successfully', data: createVehicle });
-
-    } catch (error) {
-      logger.error('Update vehicle error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
-
   async updateService(req, res) {
     try {
       const { serviceId } = req.params;
@@ -234,10 +209,153 @@ class AdminController {
     }
   }
 
+  // === Vehicle Management ===
+
+   async createVehicle(req, res) {
+    try {
+      const { serviceId } = req.params;
+      const { taxiName, color, model, plateNumber, year, vin } = req.body;
+
+      const createVehicle = new Vehicle({
+        serviceId, 
+        taxiName, 
+        color, 
+        model,
+        plateNumber, 
+        year, 
+        vin
+       });
+
+      await createVehicle.save();
+
+      res.json({ success: true, message: 'Vehicle updated successfully', data: createVehicle });
+
+    } catch (error) {
+      logger.error('Update vehicle error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  async getAllVehicles(req, res){
+    try {
+
+      const { page = 1, limit = 10 } = req.query;
+
+      const vehicles = await Vehicle.find()
+        .populate('serviceId', 'name description')
+        .populate({
+          path: 'driverId',
+          select: 'userId status isOnline isAvailable',
+          populate: {
+            path: 'userId',
+            select: 'fullName profileImage phoneNumber email'
+          }
+        })
+
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit))
+        .sort({ createdAt: -1 });
+
+      const total = await Vehicle.countDocuments();
+
+      res.json({
+        success: true,
+        data: {
+          vehicles,
+          pagination: {
+            current: parseInt(page),
+            pages: Math.ceil(total / parseInt(limit)),
+            total,
+          },
+        },
+      });
+    }
+    catch (error) {
+      logger.error('Get all vehicles error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+  
+
+  async getVechileById(req, res){
+    try {
+
+      const { vehicleId } = req.params;
+
+      const vehicle = await Vehicle.findById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({ success: false, message: 'Vehicle not found' });
+      }
+
+      res.json({ success: true, data: vehicle });
+    } catch (error) {
+      logger.error('Get vehicle by ID error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+
+  }
+
+  async deleteVehicleById(req, res){
+    try {
+
+      const { vehicleId } = req.params;
+
+      const vehicle = await Vehicle.findByIdAndDelete(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, message: 'Vehicle not found' });
+      }
+
+      res.json({ success: true, message: 'Vehicle deleted successfully' });
+
+    } catch (error) {
+      logger.error('Delete vehicle by ID error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  async approvedDriver(req, res) {
+    try {
+
+      const senderId = req.user.userId;
+      const { driverId } = req.params;
+      const driver = await Driver.findByIdAndUpdate(
+        driverId,
+        { status: 'approved' },
+        { new: true }
+      ).populate('userId', 'fullName email phoneNumber');
+
+      if (!driver) {
+        return res.status(404).json({ success: false, message: 'Driver not found' });
+      }
+
+      const receiverId = driver.userId;
+
+      // Send notification to driver
+      const notification = await sendNotification({
+        senderId,
+        receiverId,
+        title: 'Driver Approved',
+        message: 'Your driver application has been approved. You can now start accepting rides.',
+        type: 'driver_approval'
+      });
+
+      res.json({ 
+        success: true, 
+        message: 'Driver approved successfully', 
+        driverData: driver,
+        adminSendDriverNotification: notification 
+      });
+    } catch (error) {
+      logger.error('Approve driver error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
   async assignedDriverToVehicle(req, res) {
     try {
 
-      const { vehicleId, driverId } = req.params;
+      const { vehicleId, driverId } = req.body;
 
       console.log("vehicleId", vehicleId);
       console.log("driverId", driverId);
@@ -263,6 +381,46 @@ class AdminController {
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
+
+ async getVehiclesByService(req, res) {
+   try {
+     const { serviceId } = req.params;
+     const { page = 1, limit = 10 } = req.query;
+ 
+     const skip = (page - 1) * limit;
+ 
+     // Fetch vehicles for the service, with pagination
+     const vehicles = await Vehicle.find({ serviceId })
+       .populate({
+         path: 'driverId',
+         select: 'userId status isOnline isAvailable',
+         populate: {
+           path: 'userId',
+           select: 'fullName profileImage phoneNumber email'
+         }
+       })
+       .skip(skip)
+       .limit(Number(limit))
+       .sort({ createdAt: -1 });
+ 
+     const total = await Vehicle.countDocuments({ serviceId });
+ 
+     res.json({
+       success: true,
+       total,
+       page: Number(page),
+       totalPages: Math.ceil(total / limit),
+       data: vehicles
+     });
+ 
+   } catch (error) {
+     logger.error('Get vehicles by service error:', error);
+     res.status(500).json({
+       success: false,
+       message: 'Internal server error'
+     });
+   }
+ }
 
 
 
@@ -605,6 +763,22 @@ class AdminController {
         success: false,
         message: "Internal server error",
       });
+    }
+  }
+
+  async deleteUserById(req, res) {
+    try {
+      const { userId } = req.params;
+      const user = await User.findByIdAndDelete(userId);
+
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+      res.json({ success: true, message: 'User deleted successfully' });
+    }
+    catch (error) {
+      logger.error('Delete user by ID error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 

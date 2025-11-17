@@ -46,46 +46,6 @@ class ServiceController {
     }
   }
 
- async  getVehiclesByService(req, res) {
-  try {
-    const { serviceId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
-
-    const skip = (page - 1) * limit;
-
-    // Fetch vehicles for the service, with pagination
-    const vehicles = await Vehicle.find({ serviceId })
-      .populate({
-        path: 'driverId',
-        select: 'userId status isOnline isAvailable',
-        populate: {
-          path: 'userId',
-          select: 'fullName profileImage phoneNumber email'
-        }
-      })
-      .skip(skip)
-      .limit(Number(limit))
-      .sort({ createdAt: -1 });
-
-    const total = await Vehicle.countDocuments({ serviceId });
-
-    res.json({
-      success: true,
-      total,
-      page: Number(page),
-      totalPages: Math.ceil(total / limit),
-      data: vehicles
-    });
-
-  } catch (error) {
-    logger.error('Get vehicles by service error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
-  }
-}
-
   async getServiceById(req, res) {
     try {
       const { serviceId } = req.params;
