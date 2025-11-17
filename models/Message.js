@@ -21,8 +21,7 @@ const messageSchema = new mongoose.Schema({
   message: {
     type: String,
     required: true,
-    maxlength: 1000,
-    trim: true
+    maxlength: 1000
   },
   read: {
     type: Boolean,

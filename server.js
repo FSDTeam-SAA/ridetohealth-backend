@@ -17,6 +17,7 @@ const driverRoutes = require('./routes/driver');
 const serviceRoutes = require('./routes/service');
 const notificationRoutes = require('./routes/notification');
 const stripeRoutes = require('./routes/stripeRoutes');
+const socketRoutes = require('./routes/socketRoutes');
 const webhookController = require('./controllers/webhookController');
 const { initializeSocket } = require( './socket.js');
 
@@ -53,6 +54,7 @@ app.use('/api/driver', driverRoutes);
 app.use('/api/service', serviceRoutes);
 app.use('/api/notification', notificationRoutes);
 app.use('/api/stripe', stripeRoutes)
+app.use('/api/socket', socketRoutes)
 
 app.use(errorHandler);
 mongoose.connect(mongoURI)

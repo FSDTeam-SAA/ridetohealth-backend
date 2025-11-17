@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 
 const vehicleSchema = new mongoose.Schema({
-  
     serviceId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Service',

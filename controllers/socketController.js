@@ -87,102 +87,63 @@ class SocketController {
   /**
    * Ride Message Handler
    */
-  async handleRideMessage(socket, io, data, callback) {
+  async handleSendMessage(req, res) {
     try {
-      const { rideId, message, recipientId } = data;
+      console.log("HTTP Ride Message Handler Invoked");
 
-      // Validate required fields
-      if (!rideId || !message || !recipientId) {
-        const error = 'Missing required fields';
-        if (callback) callback({ success: false, error });
-        return;
+      const senderId = req.user.userId;      // Comes from auth middleware
+      const { rideId, message, receiverId } = req.body;
+
+      console.log("Sender ID:", senderId);
+      console.log("Ride ID:", rideId);
+      console.log("Receiver ID:", receiverId);
+      console.log("Message:", message);
+      // Validate fields
+      if (!senderId || !message || !receiverId || !rideId) {
+        return res.status(400).json({ success: false, error: "Missing required fields" });
       }
 
       // Validate message content
-      if (typeof message !== 'string' || message.trim().length === 0) {
-        const error = 'Invalid message';
-        if (callback) callback({ success: false, error });
-        return;
+      if (typeof message !== "string" || message.trim().length === 0) {
+        return res.status(400).json({ success: false, error: "Invalid message" });
       }
 
       if (message.length > 1000) {
-        const error = 'Message too long (max 1000 characters)';
-        if (callback) callback({ success: false, error });
-        return;
+        return res.status(400).json({ success: false, error: "Message too long (max 1000 characters)" });
       }
 
       // Fetch ride
       const ride = await Ride.findById(rideId);
       if (!ride) {
-        const error = 'Ride not found';
-        if (callback) callback({ success: false, error });
-        return;
+        return res.status(404).json({ success: false, error: "Ride not found" });
       }
 
-      // Validate user is part of this ride
-      const isCustomer = ride.customerId?.toString() === socket.userId;
-      const isDriver = ride.driverId?.toString() === socket.userId;
+      // Check if sender is customer or driver
+      const isCustomer = ride.customerId?.toString() === senderId;
+      const isDriver = ride.driverId?.toString() === receiverId;
 
       if (!isCustomer && !isDriver) {
-        const error = 'You are not a participant in this ride';
-        if (callback) callback({ success: false, error });
-        return;
+        return res.status(403).json({ success: false, error: "You are not a participant in this ride" });
       }
 
-      // Ensure recipient is the other participant
-      const validRecipient =
-        (isCustomer && ride.driverId?.toString() === recipientId) ||
-        (isDriver && ride.customerId?.toString() === recipientId);
-
-      if (!validRecipient) {
-        const error = 'Invalid recipient';
-        if (callback) callback({ success: false, error });
-        return;
-      }
-
-      const sanitizedMessage = message.trim();
 
       // Save message
       const newMessage = await Message.create({
         rideId,
-        sender: socket.userId,
-        recipient: recipientId,
-        message: sanitizedMessage,
-        timestamp: new Date(),
-        read: false,
+        sender: senderId,
+        recipient: receiverId,
+        message: message,
       });
 
-      const messageData = {
-        messageId: newMessage._id,
-        rideId,
-        message: sanitizedMessage,
-        senderId: socket.userId,
-        recipientId,
-        timestamp: newMessage.timestamp,
-      };
+      return res.json({
+        success: true,
+        message: "Message sent successfully",
+        data: newMessage,
+      });
 
-      // Emit message to both parties
-      io.to(`user_${recipientId}`).emit('ride_message', messageData);
-      socket.to(`ride_${rideId}`).emit('ride_message', messageData);
-
-      // Check if recipient is offline (for push notifications later)
-      const recipientSockets = await io.in(`user_${recipientId}`).allSockets();
-      if (recipientSockets.size === 0) {
-        // Example: await sendPushNotification(recipientId, 'New message', sanitizedMessage);
-      }
-
-      logger.info(`Message sent from ${socket.userId} to ${recipientId} in ride ${rideId}`);
-
-      if (callback) {
-        callback({
-          success: true,
-          messageId: newMessage._id,
-          timestamp: messageData.timestamp,
-        });
-      }
     } catch (error) {
-      logger.error('Ride message error:', error);
-      if (callback) callback({ success: false, error: 'Internal server error' });
+      logger.error("Ride message error:", error);
+      return res.status(500).json({ success: false, error: "Internal server error" });
     }
   }
 

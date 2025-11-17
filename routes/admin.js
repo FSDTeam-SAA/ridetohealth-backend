@@ -21,6 +21,7 @@ router.get('/dashboard/stats', adminController.getDashboardStats);
 
 // Driver Management
 router.get('/drivers', adminController.getDrivers);
+router.put('/approved-driver/:driverId', adminController.approvedDriver);
 
 // Service Management.
 router.post('/services', uploadFields, adminController.createService);
@@ -29,7 +30,11 @@ router.delete('/services/:serviceId', adminController.deleteService);
 
 // Vehicle Management
 router.post('/services/:serviceId/vehicle', adminController.createVehicle);
-router.put('/services/vehicle', adminController.assignedDriverToVehicle);
+router.put('/services/vehicle/assign-vehicle', adminController.assignedDriverToVehicle);
+router.get('/vehicle', adminController.getAllVehicles);
+router.delete('/services/vehicle/:vehicleId', adminController.deleteVehicleById);
+router.get('/services/:serviceId/vehicles', adminController.getVehiclesByService);
+router.get('/services/vehicle/:vehicleId', adminController.getVechileById);
 
 
 
@@ -48,5 +53,7 @@ router.post('/commission', adminController.createCommission);
 // User Management
 router.get('/users', adminController.getAllUsers);
 router.get('/users/:userId', adminController.getUserById);
+router.delete('/users/:userId', adminController.deleteUserById);
+
 
 module.exports = router;

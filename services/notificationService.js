@@ -4,6 +4,7 @@ const logger = require('../utils/logger');
 
 const sendNotification = async ({ senderId, receiverId, title, message, type }) => {
     try {
+      console.log(senderId, receiverId, title, message, type);
       const notification = new Notification({
         receiverId,
         senderId,

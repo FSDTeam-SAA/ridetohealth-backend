@@ -8,8 +8,6 @@ router.get('/', serviceController.getAllServices);
 router.use(authenticateToken);
 
 router.get('/:serviceId', serviceController.getServiceById);
-router.get('/vehicle/:serviceId', serviceController.getVehiclesByService);
-// router.get('/categories/:categoryId/services', serviceController.getServicesByCategory);
 router.get('/nearby/vehicles', serviceController.getNearbyVehicles);
 
 module.exports = router;
