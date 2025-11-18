@@ -11,125 +11,178 @@ const { uploadToCloudinary } = require("../services/cloudinaryService");
 
 
 class AuthController {
- async register (req, res){
-  try {
-    const { 
-      fullName, 
-      email, 
-      phoneNumber, 
-      password, 
-      role = "customer",
-      licenseNumber,
-      nidNumber,
-      serviceTypes,
-      insuranceInformation
-    } = req.body;
+  async register(req, res) {
+    try {
+      const { 
+        fullName, 
+        email, 
+        phoneNumber, 
+        password, 
+        role = "customer",
+        licenseNumber,
+        nidNumber,
+        serviceTypes,
+        insuranceInformation
+      } = req.body;
 
-    console.log(req.body);
-    // ✅ Step 1: Validate required common fields
-    if (!fullName || !email || !phoneNumber || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Full name, email, phone number, and password are required."
-      });
-    }
+      console.log(req.body);
 
-    // ✅ Step 2: Check if user already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { phoneNumber }]
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists with this email or phone number"
-      });
-    }
-
-    // ✅ Step 3: Role-based validation
-    let licenseImage = null;
-    let nidImage = null;
-    let selfieImage = null;
-
-    if (role === "driver") {
-      if (
-        !licenseNumber ||
-        !nidNumber ||
-        !serviceTypes ||
-        !req.files?.license ||
-        !req.files?.nid ||
-        !req.files?.selfie
-      ) {
+      // ===========================================
+      // 1️⃣ Validate common required fields
+      // ===========================================
+      if (!fullName || !email || !phoneNumber || !password) {
         return res.status(400).json({
           success: false,
-          message: "Driver registration requires all license, NID, and selfie images."
+          message: "Full name, email, phone number, and password are required."
         });
       }
 
-      // ✅ Upload images to Cloudinary
-      licenseImage = await uploadToCloudinary(req.files.license[0].buffer, "driver_documents");
-      nidImage = await uploadToCloudinary(req.files.nid[0].buffer, "driver_documents");
-      selfieImage = await uploadToCloudinary(req.files.selfie[0].buffer, "driver_documents");
-    }
-
-    // ✅ Step 4: Create user
-    const user = new User({
-      fullName,
-      email,
-      phoneNumber,
-      password,
-      role,
-      licenseNumber,
-      licenseImage,
-      nidNumber,
-      nidImage,
-      selfieImage,
-      serviceTypes,
-      insuranceInformation
-    });
-
-    await user.save();
-
-    // ✅ Step 5: Generate & send OTP for email verification
-    const otp = generateOTP();
-    await sendOTP(email, otp, "email");
-
-    await OTP.create({
-      userId: user._id,
-      otp,
-      type: "email_verification",
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000)
-    });
-
-    if(role === "driver") {
-      // Additional steps for driver registration can be added here
-      const driver = new Driver({
-        userId: user._id,
+      // ===========================================
+      // 2️⃣ Check unique email or phone number
+      // ===========================================
+      const existingUser = await User.findOne({
+        $or: [{ email }, { phoneNumber }]
       });
-      await driver.save();
-    }
-    return res.status(201).json({
-      success: true,
-      message:
-        role === "driver"
-          ? "Driver registered successfully. Please verify your email. Awaiting admin approval."
-          : "Customer registered successfully. Please verify your email.",
-      data: {
-        userId: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        role: user.role
+
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message:
+            existingUser.email === email
+              ? "This email is already registered."
+              : "This phone number is already registered."
+        });
       }
-    });
-  } catch (error) {
-    logger.error("Registration error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error"
-    });
+
+      // ===========================================
+      // 3️⃣ DRIVER-SPECIFIC VALIDATION (Before Upload)
+      // ===========================================
+      let licenseImage = null;
+      let nidImage = null;
+      let selfieImage = null;
+
+      if (role === "driver") {
+        // Check required fields
+        if (
+          !licenseNumber ||
+          !nidNumber ||
+          !serviceTypes ||
+          !req.files?.license ||
+          !req.files?.nid ||
+          !req.files?.selfie
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Driver registration requires license number, NID number, service types, and all images (license, NID, selfie)."
+          });
+        }
+
+        // ===========================================
+        // 4️⃣ Check unique driver license number
+        // ===========================================
+        const existingLicense = await User.findOne({ licenseNumber });
+        if (existingLicense) {
+          return res.status(400).json({
+            success: false,
+            message: "This license number is already registered."
+          });
+        }
+
+        // ===========================================
+        // 5️⃣ Check unique NID number
+        // ===========================================
+        const existingNID = await User.findOne({ nidNumber });
+        if (existingNID) {
+          return res.status(400).json({
+            success: false,
+            message: "This NID number is already registered."
+          });
+        }
+
+        // ===========================================
+        // 6️⃣ Upload images to Cloudinary
+        // ===========================================
+        licenseImage = await uploadToCloudinary(
+          req.files.license[0].buffer,
+          "driver_documents"
+        );
+        nidImage = await uploadToCloudinary(
+          req.files.nid[0].buffer,
+          "driver_documents"
+        );
+        selfieImage = await uploadToCloudinary(
+          req.files.selfie[0].buffer,
+          "driver_documents"
+        );
+      }
+
+      // ===========================================
+      // 7️⃣ Create user
+      // ===========================================
+      const user = new User({
+        fullName,
+        email,
+        phoneNumber,
+        password,
+        role,
+        licenseNumber,
+        licenseImage,
+        nidNumber,
+        nidImage,
+        selfieImage,
+        serviceTypes,
+        insuranceInformation
+      });
+
+      await user.save();
+
+      // ===========================================
+      // 8️⃣ Generate & send OTP
+      // ===========================================
+      const otp = generateOTP();
+      await sendOTP(email, otp, "email");
+
+      await OTP.create({
+        userId: user._id,
+        otp,
+        type: "email_verification",
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 min
+      });
+
+      // ===========================================
+      // 9️⃣ If driver, create driver profile
+      // ===========================================
+      if (role === "driver") {
+        await new Driver({ userId: user._id }).save();
+      }
+
+      // ===========================================
+      // 🔟 Response
+      // ===========================================
+      return res.status(201).json({
+        success: true,
+        message:
+          role === "driver"
+            ? "Driver registered successfully. Please verify your email. Awaiting admin approval."
+            : "Customer registered successfully. Please verify your email.",
+        data: {
+          userId: user._id,
+          fullName: user.fullName,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          role: user.role
+        }
+      });
+
+    } catch (error) {
+      logger.error("Registration error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error"
+      });
+    }
   }
-};
 
 
   async login(req, res) {
