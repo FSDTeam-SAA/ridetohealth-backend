@@ -4,6 +4,27 @@ const logger = require('../utils/logger');
 const Vehicle = require('../models/Vehicle');
 
 class ServiceController {
+
+  async createService(req, res) {
+      try {
+        const { name, description } = req.body;
+        if (!req.files?.serviceImage?.[0]) {
+          return res.status(400).json({ success: false, message: 'Image is required' });
+        }
+  
+        let serviceImage = null;
+        serviceImage = await uploadToCloudinary(req.files.serviceImage[0].buffer, 'services');
+  
+        const service = new Service({name , serviceImage, description });
+        await service.save();
+  
+        res.status(201).json({ success: true, message: 'Service created successfully', data: service });
+      } catch (error) {
+        logger.error('Create service error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+      }
+    }
+  
  async getAllServices(req, res) {
     try {
       const { page = 1, limit = 10, search = "" } = req.query;
@@ -70,47 +91,58 @@ class ServiceController {
       });
     }
   }
-
-  async getNearbyVehicles(req, res) {
-    try {
-      const { serviceId, latitude, longitude, radius = 5000 } = req.query;
-
-      if (!serviceId || !latitude || !longitude) {
-        return res.status(400).json({
+    async updateService(req, res) {
+      try {
+        const { serviceId } = req.params;
+       
+        let serviceImage = null;
+        serviceImage = await uploadToCloudinary(req.files.serviceImage[0].buffer, 'services');
+  
+         const service = await Service.findByIdAndUpdate(
+          serviceId,
+          { serviceImage, ...req.body },
+          { new: true, runValidators: true }
+        );
+  
+        if (!service) return res.status(404).json({ success: false, message: 'Service not found' });
+  
+        res.json({ success: true, message: 'Service updated successfully', data: service });
+  
+      } catch (error) {
+        logger.error('Update service error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+      }
+    }
+  
+    async deleteService(req, res) {
+      try {
+        const { serviceId } = req.params;
+  
+        // Delete the service from the database
+        const service = await Service.findByIdAndDelete(serviceId);
+  
+        if (!service) {
+          return res.status(404).json({
+            success: false,
+            message: 'Service not found'
+          });
+        }
+  
+        res.json({
+          success: true,
+          message: 'Service permanently deleted',
+          data: service
+        });
+  
+      } catch (error) {
+        logger.error('Delete service error:', error);
+        res.status(500).json({
           success: false,
-          message: 'Service ID, latitude, and longitude are required'
+          message: 'Internal server error'
         });
       }
-
-      const drivers = await Driver.find({
-        serviceTypes: serviceId,
-        status: 'approved',
-        isOnline: true,
-        isAvailable: true,
-        currentLocation: {
-          $near: {
-            $geometry: {
-              type: 'Point',
-              coordinates: [parseFloat(longitude), parseFloat(latitude)]
-            },
-            $maxDistance: parseInt(radius)
-          }
-        }
-      }).populate('userId', 'fullName profileImage')
-        .select('userId vehicle currentLocation ratings');
-
-      res.json({
-        success: true,
-        data: drivers
-      });
-    } catch (error) {
-      logger.error('Get nearby vehicles error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
     }
-  }
+  
 }
 
 module.exports = new ServiceController();

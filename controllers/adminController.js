@@ -135,80 +135,126 @@ class AdminController {
     }
   }
 
-
-  // === Service Management ===
-  async createService(req, res) {
+  async getDriverById(req, res) {
     try {
-      const { name, description } = req.body;
-      if (!req.files?.serviceImage?.[0]) {
-        return res.status(400).json({ success: false, message: 'Image is required' });
+
+      const { driverId } = req.params;
+
+      const driver = await Driver.findById(driverId)
+        .populate('userId', 'fullName email phoneNumber profileImage')
+        .populate('vehicleId');
+
+      if (!driver) {  
+        return res.status(404).json({ success: false, message: 'Driver not found' });
       }
 
-      let serviceImage = null;
-      serviceImage = await uploadToCloudinary(req.files.serviceImage[0].buffer, 'services');
-
-      const service = new Service({name , serviceImage, description });
-      await service.save();
-
-      res.status(201).json({ success: true, message: 'Service created successfully', data: service });
-    } catch (error) {
-      logger.error('Create service error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
-
-  async updateService(req, res) {
-    try {
-      const { serviceId } = req.params;
-     
-      let serviceImage = null;
-      serviceImage = await uploadToCloudinary(req.files.serviceImage[0].buffer, 'services');
-
-       const service = await Service.findByIdAndUpdate(
-        serviceId,
-        { serviceImage, ...req.body },
-        { new: true, runValidators: true }
-      );
-
-      if (!service) return res.status(404).json({ success: false, message: 'Service not found' });
-
-      res.json({ success: true, message: 'Service updated successfully', data: service });
-
-    } catch (error) {
-      logger.error('Update service error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
-
-  async deleteService(req, res) {
-    try {
-      const { serviceId } = req.params;
-
-      // Delete the service from the database
-      const service = await Service.findByIdAndDelete(serviceId);
-
-      if (!service) {
-        return res.status(404).json({
-          success: false,
-          message: 'Service not found'
-        });
-      }
-
-      res.json({
+      res.json({ 
         success: true,
-        message: 'Service permanently deleted',
-        data: service
+        message: 'Driver fetched successfully',
+        data: driver 
       });
-
     } catch (error) {
-      logger.error('Delete service error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
+      logger.error('Get driver by ID error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 
+  async deleteDriverById(req, res) {
+    try {
+
+      const { driverId } = req.params;
+      const driver = await Driver.findByIdAndDelete(driverId);
+
+      if (!driver) {
+        return res.status(404).json({ success: false, message: 'Driver not found' });
+      }
+
+      res.json({ 
+        success: true, 
+        message: 'Driver deleted successfully' 
+      });
+    } catch (error) {
+      logger.error('Delete driver by ID error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  async approvedDriver(req, res) {
+    try {
+
+      const senderId = req.user.userId;
+      const { driverId } = req.params;
+      const driver = await Driver.findByIdAndUpdate(
+        driverId,
+        { status: 'approved' },
+        { new: true }
+      ).populate('userId', 'fullName email phoneNumber');
+
+      if (!driver) {
+        return res.status(404).json({ success: false, message: 'Driver not found' });
+      }
+
+      const receiverId = driver.userId;
+
+      // Send notification to driver
+      const notification = await sendNotification({
+        senderId,
+        receiverId,
+        title: 'Driver Approved',
+        message: 'Your driver application has been approved. You can now start accepting rides.',
+        type: 'driver_approval'
+      });
+
+      res.json({ 
+        success: true, 
+        message: 'Driver approved successfully', 
+        driverData: driver,
+        adminSendDriverNotification: notification 
+      });
+    } catch (error) {
+      logger.error('Approve driver error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+
+  async rejectDriver(req, res) {
+    try {
+
+      const senderId = req.user.userId;
+      const { driverId } = req.params;
+
+      const driver = await Driver.findByIdAndUpdate(
+        driverId,
+        { status: 'rejected' },
+        { new: true }
+      ).populate('userId', 'fullName email phoneNumber');
+
+      if (!driver) {
+        return res.status(404).json({ success: false, message: 'Driver not found' });
+      }
+
+      const receiverId = driver.userId;
+
+      // Send notification to driver
+      const notification = await sendNotification({
+        senderId,
+        receiverId,
+        title: 'Driver Rejected',
+        message: 'Your driver application has been rejected. Please review your details and try again.',
+        type: 'driver_approval'
+      });
+
+      res.json({ 
+        success: true, 
+        message: 'Driver rejected successfully', 
+        driverData: driver,
+        adminSendDriverNotification: notification 
+      });
+    } catch (error) {
+      logger.error('Reject driver error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
   // === Vehicle Management ===
 
    async createVehicle(req, res) {
@@ -310,44 +356,6 @@ class AdminController {
 
     } catch (error) {
       logger.error('Delete vehicle by ID error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  }
-
-  async approvedDriver(req, res) {
-    try {
-
-      const senderId = req.user.userId;
-      const { driverId } = req.params;
-      const driver = await Driver.findByIdAndUpdate(
-        driverId,
-        { status: 'approved' },
-        { new: true }
-      ).populate('userId', 'fullName email phoneNumber');
-
-      if (!driver) {
-        return res.status(404).json({ success: false, message: 'Driver not found' });
-      }
-
-      const receiverId = driver.userId;
-
-      // Send notification to driver
-      const notification = await sendNotification({
-        senderId,
-        receiverId,
-        title: 'Driver Approved',
-        message: 'Your driver application has been approved. You can now start accepting rides.',
-        type: 'driver_approval'
-      });
-
-      res.json({ 
-        success: true, 
-        message: 'Driver approved successfully', 
-        driverData: driver,
-        adminSendDriverNotification: notification 
-      });
-    } catch (error) {
-      logger.error('Approve driver error:', error);
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
