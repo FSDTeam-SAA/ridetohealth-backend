@@ -22,11 +22,9 @@ router.get('/dashboard/stats', adminController.getDashboardStats);
 // Driver Management
 router.get('/drivers', adminController.getDrivers);
 router.put('/approved-driver/:driverId', adminController.approvedDriver);
-
-// Service Management.
-router.post('/services', uploadFields, adminController.createService);
-router.put('/services/:serviceId',  uploadFields, adminController.updateService);
-router.delete('/services/:serviceId', adminController.deleteService);
+router.put('/reject-driver/:driverId', adminController.rejectDriver);
+router.get('/drivers/:driverId', adminController.getDriverById);
+router.delete('/drivers/:driverId', adminController.deleteDriverById);
 
 // Vehicle Management
 router.post('/services/:serviceId/vehicle', adminController.createVehicle);
@@ -44,7 +42,7 @@ router.get('/promo-codes', adminController.getPromoCodes);
 router.delete('/promo-codes/:promoCodeId', adminController.deletePromoCode);
 router.put('/promo-codes/:promoCodeId', adminController.updatePromoCode);
 
-// Commission
+// Commission Management
 router.get('/commission/history', adminController.getCommissionHistory);
 router.post('/commission', adminController.createCommission);
 

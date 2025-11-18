@@ -210,10 +210,8 @@ class UserController {
   async getRecentTrips(req, res) {
     try {
       const { page = 1, limit = 10 } = req.query;
-
-      const rides = await Ride.find({ customerId: req.user.userId })
-        .populate('driverId', 'userId')
-        .populate('serviceId', 'name category')
+      console.log(req.user.userId);
+      const rides = await Ride.find({ customerId: req.user.userId }).select('-rating -commission -route')
         .sort({ createdAt: -1 })
         .limit(limit * 1)
         .skip((page - 1) * limit);
@@ -343,7 +341,6 @@ class UserController {
   }
 
   async getRiderByDestination(req, res) {
-
     try {
       const { latitude, longitude } = req.query;
 
@@ -360,17 +357,23 @@ class UserController {
         isAvailable: true,
         currentLocation: {
           $near: {
-            $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
-            $maxDistance: 10000 // 10 km
+            $geometry: {
+              type: 'Point',
+              coordinates: [
+                parseFloat(longitude),
+                parseFloat(latitude)
+              ]
+            },
+            $maxDistance: 10000000  // 100 km in meters
           }
         }
       }).populate('userId', 'fullName phoneNumber');
 
-      if(drivers.length === 0){
+      if (drivers.length === 0) {
         return res.json({
           success: false,
-          message: "No drivers found nearby, please try another area."
-        })
+          message: 'No drivers found within 100 km.'
+        });
       }
 
       res.json({
@@ -378,6 +381,7 @@ class UserController {
         message: 'Nearby drivers found',
         data: drivers
       });
+
     } catch (error) {
       console.error('Get nearby drivers error:', error);
       res.status(500).json({
@@ -385,7 +389,6 @@ class UserController {
         message: 'Internal server error'
       });
     }
-
   }
 }
 

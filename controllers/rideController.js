@@ -127,12 +127,14 @@ class RideController {
         customerName: user.fullName || 'Customer'
     });
 
-      // const notification = await sendNotification(driver.userId._id, {
-      //   title: 'New Ride Request',
-      //   message: `New ride request from ${pickupLocation.address}`,
-      //   type: 'ride_request',
-      //   data: { rideId: ride._id }
-      // });
+      const notification = await sendNotification({
+        senderId: customerId,
+        receiverId: driverId,
+        title: 'New Ride Request',
+        message: `New ride request from ${pickupLocation.address}`,
+        type: 'ride_request',
+        data: { rideId: ride._id }
+      });
 
       res.status(201).json({
         success: true,
@@ -147,6 +149,7 @@ class RideController {
             phone: user.phoneNumber
           }
         },
+        notification: notification
       });
 
     } catch (error) {
@@ -362,9 +365,6 @@ class RideController {
         ride.finalFare = calculateFare(service, actualDistance, ride.actualDuration);
 
         ride.commission.amount = ride.finalFare * ride.commission.rate;
-
-        console.log("Final Fare:", ride.finalFare);
-        console.log("Commission:", ride.commission.amount);
 
         // Update driver wallet
         const driver = await Driver.findOne({userId: ride.driverId});

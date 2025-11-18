@@ -262,16 +262,9 @@ async updateLocation(req, res) {
 
   async getEarnings(req, res) {
     try {
-      const userId = req.user.userId;
-      const driver = await Driver.findOne({ userId });
-      const driverId = driver._id;
-
-      if (!driver) {
-        return res.status(404).json({
-          success: false,
-          message: "Driver profile not found",
-        });
-      }
+      const driverId = req.user.userId;
+      // const driver = await Driver.findOne({ userId });
+      // const driverId = driver._id;
 
       const result = await Ride.aggregate([
         { $match: { driverId } },
@@ -350,18 +343,19 @@ async updateLocation(req, res) {
   async getReviews(req, res) {
     try {
       const { page = 1, limit = 10 } = req.query;
-      const userId = req.user.userId;
+      const driverId = req.user.userId;
 
-      const driver = await Driver.findOne({ userId });
+      const driver = await Driver.findOne({ userId: driverId });
+
       if (!driver) {
         return res.status(404).json({
           success: false,
-          message: "Driver profile not found",
+          message: "Driver not found",
         });
       }
 
       const rides = await Ride.find({
-        driverId: driver._id,
+        driverId: driverId,
         "rating.customerToDriver.rating": { $exists: true },
       })
         .populate("customerId", "fullName profileImage")
@@ -371,7 +365,7 @@ async updateLocation(req, res) {
         .skip((page - 1) * limit);
 
       const total = await Ride.countDocuments({
-        driverId: driver._id,
+        driverId: driverId,
         "rating.customerToDriver.rating": { $exists: true },
       });
 
