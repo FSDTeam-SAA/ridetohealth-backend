@@ -11,7 +11,7 @@ const initializeSocket = (httpServer) => {
     pingTimeout: 60000,
     pingInterval: 25000,
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: "*",
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
     },
