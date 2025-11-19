@@ -340,62 +340,104 @@ async updateLocation(req, res) {
     }
   }
 
-  async getReviews(req, res) {
-    try {
-      const { page = 1, limit = 10 } = req.query;
-      const driverId = req.user.userId;
+ async getReviews(req, res) {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const driverId = req.user.userId;
 
-      const driver = await Driver.findOne({ userId: driverId });
+    // Parse to integers
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
 
-      if (!driver) {
-        return res.status(404).json({
-          success: false,
-          message: "Driver not found",
-        });
-      }
+    const driver = await Driver.findOne({ userId: driverId });
 
-      const rides = await Ride.find({
-        driverId: driverId,
-        "rating.customerToDriver.rating": { $exists: true },
-      })
-        .populate("customerId", "fullName profileImage")
-        .select("rating.customerToDriver createdAt")
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
-
-      const total = await Ride.countDocuments({
-        driverId: driverId,
-        "rating.customerToDriver.rating": { $exists: true },
-      });
-
-      res.json({
-        success: true,
-        data: {
-          reviews: rides.map((ride) => ({
-            customer: ride.customerId,
-            rating: ride.rating.customerToDriver.rating,
-            comment: ride.rating.customerToDriver.comment,
-            date: ride.createdAt,
-          })),
-          pagination: {
-            current: page,
-            pages: Math.ceil(total / limit),
-            total,
-          },
-          averageRating: driver.ratings.average,
-          totalRatings: driver.ratings.count,
-        },
-      });
-    } catch (error) {
-      logger.error("Get driver reviews error:", error);
-      res.status(500).json({
+    if (!driver) {
+      return res.status(404).json({
         success: false,
-        message: "Internal server error",
+        message: "Driver not found",
       });
     }
-  }
 
+    // Fetch paginated reviews
+    const rides = await Ride.find({
+      driverId: driverId,
+      "rating.customerToDriver.rating": { $exists: true },
+    })
+      .populate("customerId", "fullName profileImage") // Adjust field names based on your User model
+      .select("rating.customerToDriver customerId")
+      .sort({ "rating.customerToDriver.ratedAt": -1 }) // Sort by rating date, not ride creation
+      .limit(limitNum)
+      .skip((pageNum - 1) * limitNum);
+
+    // Get total count for pagination
+    const total = await Ride.countDocuments({
+      driverId: driverId,
+      "rating.customerToDriver.rating": { $exists: true },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        // Overall rating statistics
+        ratingStats: {
+          averageRating: driver.ratings.average.toFixed(2), // Format to 2 decimals
+          totalRatings: driver.ratings.totalRatings, // FIX: Changed from driver.ratings.count
+          starBreakdown: {
+            oneStar: driver.ratings.count1,
+            twoStar: driver.ratings.count2,
+            threeStar: driver.ratings.count3,
+            fourStar: driver.ratings.count4,
+            fiveStar: driver.ratings.count5,
+          },
+          // Optional: Add percentages
+          starPercentages: {
+            oneStar: driver.ratings.totalRatings > 0 
+              ? ((driver.ratings.count1 / driver.ratings.totalRatings) * 100).toFixed(1) 
+              : 0,
+            twoStar: driver.ratings.totalRatings > 0 
+              ? ((driver.ratings.count2 / driver.ratings.totalRatings) * 100).toFixed(1) 
+              : 0,
+            threeStar: driver.ratings.totalRatings > 0 
+              ? ((driver.ratings.count3 / driver.ratings.totalRatings) * 100).toFixed(1) 
+              : 0,
+            fourStar: driver.ratings.totalRatings > 0 
+              ? ((driver.ratings.count4 / driver.ratings.totalRatings) * 100).toFixed(1) 
+              : 0,
+            fiveStar: driver.ratings.totalRatings > 0 
+              ? ((driver.ratings.count5 / driver.ratings.totalRatings) * 100).toFixed(1) 
+              : 0,
+          }
+        },
+        // Individual reviews with pagination
+        reviews: rides.map((ride) => ({
+          customer: {
+            id: ride.customerId?._id,
+            name: ride.customerId?.fullName,
+            profileImage: ride.customerId?.profileImage,
+          },
+          rating: ride.rating.customerToDriver.rating,
+          comment: ride.rating.customerToDriver.comment || "",
+          ratedAt: ride.rating.customerToDriver.ratedAt, // FIX: Use ratedAt instead of createdAt
+        })),
+        // Pagination info
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(total / limitNum),
+          totalReviews: total,
+          limit: limitNum,
+          hasNextPage: pageNum < Math.ceil(total / limitNum),
+          hasPrevPage: pageNum > 1,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get driver reviews error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
   // Get Driver loginhistory info
   async loginHistory(req, res) {
     try {

@@ -85,16 +85,20 @@ const driverSchema = new mongoose.Schema({
     },
     completedDate: Date
   }],
-  ratings:{
+ ratings: {
     average: {
-        type: Number,
-        min: 1,
-        max: 5
-      },
-      comment: String
-  },
-  count:{
-    type:Number
+      type: Number,
+      default: 0,
+    },
+    totalRatings: {
+      type: Number,
+      default: 0,
+    },
+    count1: { type: Number, default: 0 },
+    count2: { type: Number, default: 0 },
+    count3: { type: Number, default: 0 },
+    count4: { type: Number, default: 0 },
+    count5: { type: Number, default: 0 },
   },
   heading: {
     type: Number, // Direction in degrees (0-360)
