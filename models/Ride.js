@@ -96,7 +96,11 @@ const rideSchema = new mongoose.Schema({
         min: 1,
         max: 5
       },
-      comment: String
+      comment: String,
+      ratedAt: {
+        type: Date,
+        default: Date.now
+      }
     },
     driverToCustomer: {
       rating: {
@@ -104,9 +108,14 @@ const rideSchema = new mongoose.Schema({
         min: 1,
         max: 5
       },
-      comment: String
+      comment: String,
+      ratedAt: {
+        type: Date,
+        default: Date.now
+      }
     }
   },
+
   reviews:{
     type:String
   },
