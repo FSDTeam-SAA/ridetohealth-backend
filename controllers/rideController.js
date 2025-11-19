@@ -629,15 +629,7 @@ class RideController {
       data: {
         rideId: ride._id,
         rating,
-        driverNewAverage: driver.ratings.average.toFixed(2),
-        totalRatings: driver.ratings.totalRatings,
-        starCounts: {
-          oneStar: driver.ratings.count1,
-          twoStar: driver.ratings.count2,
-          threeStar: driver.ratings.count3,
-          fourStar: driver.ratings.count4,
-          fiveStar: driver.ratings.count5,
-        }
+        comment
       }
     });
   } catch (error) {
