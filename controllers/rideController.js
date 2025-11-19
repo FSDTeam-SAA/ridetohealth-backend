@@ -510,115 +510,144 @@ class RideController {
   }
 
   async rateRide(req, res) {
-    try {
-      const { rideId } = req.params;
-      const { rating, comment } = req.body;
+  try {
+    const { rideId } = req.params;
+    const { rating, comment } = req.body;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
 
-      const userId = req.user.userId;
-      const userRole = req.user.role;
-
-      // Customer only
-      if (userRole !== 'customer') {
-        return res.status(403).json({
-          success: false,
-          message: 'Only customers can rate drivers'
-        });
-      }
-
-      // Validate rating
-      if (!rating || rating < 1 || rating > 5) {
-        return res.status(400).json({
-          success: false,
-          message: 'Rating must be between 1 and 5'
-        });
-      }
-
-      // Find ride
-      const ride = await Ride.findById(rideId);
-      if (!ride) {
-        return res.status(404).json({
-          success: false,
-          message: 'Ride not found'
-        });
-      }
-
-      if (ride.customerId.toString() !== userId.toString()) {
-        return res.status(403).json({
-          success: false,
-          message: 'You are not authorized to rate this ride'
-        });
-      }
-
-      if (ride.status !== 'completed') {
-        return res.status(400).json({
-          success: false,
-          message: 'Only completed rides can be rated'
-        });
-      }
-
-      // Already rated?
-      if (ride.rating?.customerToDriver?.rating) {
-        return res.status(400).json({
-          success: false,
-          message: 'You have already rated this ride'
-        });
-      }
-
-      // Prepare rating object
-      if (!ride.rating) ride.rating = {};
-
-      ride.rating.customerToDriver = {
-        rating,
-        comment: comment || '',
-        ratedAt: new Date()
-      };
-
-      await ride.save();
-
-      // Update driver rating average
-      const driver = await Driver.findOne({userId: ride.driverId});
-
-      // Calculate new average rating
-      const totalRatings = driver.ratings.totalRatings + 1;
-      const totalScore = (driver.ratings.average * driver.ratings.totalRatings) + rating;
-
-      driver.ratings.totalRatings = totalRatings;
-      driver.ratings.average = totalScore / totalRatings;
-
-      await driver.save();
-
-      // ================================
-      // REAL-TIME SOCKET NOTIFICATION 🔔
-      // ================================
-      const io = req.app.get('io');
-
-      io.to(`driver_${driver.userId}`).emit("new_rating", {
-        rideId: ride._id,
-        rating,
-        averageRating: driver.ratings.average.toFixed(2),
-        message: `You received a ${rating}-star rating`
-      });
-
-      // ================================
-
-      res.json({
-        success: true,
-        message: 'Driver rated successfully',
-        data: {
-          rideId: ride._id,
-          rating,
-          driverNewAverage: driver.ratings.average
-        }
-      });
-
-    } catch (error) {
-      logger.error('Rate ride error:', error);
-      res.status(500).json({
+    if (userRole !== 'customer') {
+      return res.status(403).json({
         success: false,
-        message: 'Internal server error'
+        message: 'Only customers can rate drivers'
       });
     }
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating must be between 1 and 5'
+      });
+    }
+
+    const ride = await Ride.findById(rideId);
+    if (!ride) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ride not found'
+      });
+    }
+
+    if (ride.customerId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to rate this ride'
+      });
+    }
+
+    if (ride.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only completed rides can be rated'
+      });
+    }
+
+    if (ride.rating?.customerToDriver?.rating) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already rated this ride'
+      });
+    }
+
+    if (!ride.rating) ride.rating = {};
+    ride.rating.customerToDriver = {
+      rating,
+      comment: comment || '',
+      ratedAt: new Date()
+    };
+    await ride.save();
+
+    // ================================
+    // UPDATE DRIVER RATING STATS
+    // ================================
+    const driver = await Driver.findOne({ userId: ride.driverId });
+    
+    // FIX: Check if driver exists
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: 'Driver not found'
+      });
+    }
+
+    if (!driver.ratings) {
+      driver.ratings = {
+        average: 0,
+        totalRatings: 0,
+        count1: 0,
+        count2: 0,
+        count3: 0,
+        count4: 0,
+        count5: 0
+      };
+    }
+
+    // FIX: Correct array access syntax
+    driver.ratings[`count${rating}`] += 1;
+
+    // Update totals
+    driver.ratings.totalRatings += 1;
+
+    // Calculate new average
+    let totalScore =
+      (1 * driver.ratings.count1) +
+      (2 * driver.ratings.count2) +
+      (3 * driver.ratings.count3) +
+      (4 * driver.ratings.count4) +
+      (5 * driver.ratings.count5);
+
+    driver.ratings.average = totalScore / driver.ratings.totalRatings;
+    await driver.save();
+
+    // ================================
+    // REAL-TIME SOCKET NOTIFICATION
+    // ================================
+    const io = req.app.get('io');
+    
+    // FIX: Correct socket.io syntax
+    io.to(`driver_${driver.userId}`).emit("new_rating", {
+      rideId: ride._id,
+      rating,
+      averageRating: driver.ratings.average.toFixed(2),
+      message: `You received a ${rating}-star rating`
+    });
+
+    // ================================
+    res.json({
+      success: true,
+      message: 'Driver rated successfully',
+      data: {
+        rideId: ride._id,
+        rating,
+        driverNewAverage: driver.ratings.average.toFixed(2),
+        totalRatings: driver.ratings.totalRatings,
+        starCounts: {
+          oneStar: driver.ratings.count1,
+          twoStar: driver.ratings.count2,
+          threeStar: driver.ratings.count3,
+          fourStar: driver.ratings.count4,
+          fiveStar: driver.ratings.count5,
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Rate ride error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
   }
+}
 
 
   
