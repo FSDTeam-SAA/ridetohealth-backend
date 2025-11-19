@@ -47,7 +47,7 @@ class AuthController {
         });
       }
 
-      // 3️⃣ Driver-specific validation and image upload
+      // 3️⃣ Driver-specific validation
       let licenseImage = null;
       let nidImage = null;
       let selfieImage = null;
@@ -86,18 +86,40 @@ class AuthController {
             message: "This NID number is already registered."
           });
         }
-    // Upload all images in parallel
-      const [licenseUpload, nidUpload, selfieUpload] = await Promise.all([
-        uploadToCloudinary(req.files.license[0].buffer, "driver_documents"),
-        uploadToCloudinary(req.files.nid[0].buffer, "driver_documents"),
-        uploadToCloudinary(req.files.selfie[0].buffer, "driver_documents")
-      ]);
 
-      // Extract URLs
-      licenseImage = licenseUpload.secure_url;
-      nidImage = nidUpload.secure_url;
-      selfieImage = selfieUpload.secure_url;
-    }
+        // 🚀 CRITICAL: Upload images with timeout protection
+        try {
+          const uploadTimeout = 25000; // 25 seconds timeout
+          
+          const uploadPromises = Promise.all([
+            uploadToCloudinary(req.files.license[0].buffer, "driver_documents"),
+            uploadToCloudinary(req.files.nid[0].buffer, "driver_documents"),
+            uploadToCloudinary(req.files.selfie[0].buffer, "driver_documents")
+          ]);
+
+          // Race between uploads and timeout
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Upload timeout')), uploadTimeout)
+          );
+
+          const [licenseUpload, nidUpload, selfieUpload] = await Promise.race([
+            uploadPromises,
+            timeoutPromise
+          ]);
+
+          // Extract URLs
+          licenseImage = licenseUpload.secure_url;
+          nidImage = nidUpload.secure_url;
+          selfieImage = selfieUpload.secure_url;
+
+        } catch (uploadError) {
+          logger.error("Image upload error:", uploadError);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to upload images. Please try again or check your internet connection."
+          });
+        }
+      }
 
       // 4️⃣ Create new user
       const user = new User({
@@ -119,15 +141,19 @@ class AuthController {
 
       await user.save();
 
-      // 5️⃣ Generate and send OTP
+      // 5️⃣ Generate and send OTP (don't await email sending)
       const otp = generateOTP();
-      await sendOTP(email, otp, "email");
+      
+      // Send OTP without blocking
+      sendOTP(email, otp, "email").catch(err => {
+        logger.error("OTP email sending error:", err);
+      });
 
       await OTP.create({
         userId: user._id,
         otp,
         type: "email_verification",
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000)
       });
 
       // 6️⃣ Create driver profile if role is driver
@@ -135,7 +161,7 @@ class AuthController {
         await Driver.create({ userId: user._id });
       }
 
-      // 7️⃣ Send success response
+      // 7️⃣ Send success response IMMEDIATELY
       return res.status(201).json({
         success: true,
         message: role === "driver"
@@ -152,13 +178,28 @@ class AuthController {
 
     } catch (error) {
       logger.error("Registration error:", error);
+      
+      // Provide more specific error messages
+      if (error.name === 'ValidationError') {
+        return res.status(400).json({
+          success: false,
+          message: "Validation error: " + error.message
+        });
+      }
+      
+      if (error.code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message: "Duplicate entry detected. Please check your information."
+        });
+      }
+
       return res.status(500).json({
         success: false,
         message: "Internal server error during registration."
       });
     }
   }
-
 
   async login(req, res) {
     try {

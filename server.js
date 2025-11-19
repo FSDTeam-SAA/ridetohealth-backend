@@ -74,3 +74,8 @@ const PORT = port || 5000;
 server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
 });
+
+// Set server timeout to 2 minutes
+server.timeout = 120000;
+server.keepAliveTimeout = 120000;
+server.headersTimeout = 120000;
