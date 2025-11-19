@@ -25,11 +25,7 @@ class AuthController {
         insuranceInformation
       } = req.body;
 
-      console.log(req.body);
-
-      // ===========================================
-      // 1️⃣ Validate common required fields
-      // ===========================================
+      // 1️⃣ Validate required fields
       if (!fullName || !email || !phoneNumber || !password) {
         return res.status(400).json({
           success: false,
@@ -37,9 +33,7 @@ class AuthController {
         });
       }
 
-      // ===========================================
-      // 2️⃣ Check unique email or phone number
-      // ===========================================
+      // 2️⃣ Check if user already exists
       const existingUser = await User.findOne({
         $or: [{ email }, { phoneNumber }]
       });
@@ -47,40 +41,35 @@ class AuthController {
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          message:
-            existingUser.email === email
-              ? "This email is already registered."
-              : "This phone number is already registered."
+          message: existingUser.email === email
+            ? "This email is already registered."
+            : "This phone number is already registered."
         });
       }
 
-      // ===========================================
-      // 3️⃣ DRIVER-SPECIFIC VALIDATION (Before Upload)
-      // ===========================================
+      // 3️⃣ Driver-specific validation and image upload
       let licenseImage = null;
       let nidImage = null;
       let selfieImage = null;
 
       if (role === "driver") {
-        // Check required fields
-        if (
-          !licenseNumber ||
-          !nidNumber ||
-          !serviceTypes ||
-          !req.files?.license ||
-          !req.files?.nid ||
-          !req.files?.selfie
-        ) {
+        // Validate driver fields
+        if (!licenseNumber || !nidNumber || !serviceTypes) {
           return res.status(400).json({
             success: false,
-            message:
-              "Driver registration requires license number, NID number, service types, and all images (license, NID, selfie)."
+            message: "Driver registration requires license number, NID number, and service types."
           });
         }
 
-        // ===========================================
-        // 4️⃣ Check unique driver license number
-        // ===========================================
+        // Validate driver files
+        if (!req.files?.license || !req.files?.nid || !req.files?.selfie) {
+          return res.status(400).json({
+            success: false,
+            message: "Driver registration requires all images (license, NID, selfie)."
+          });
+        }
+
+        // Check unique license number
         const existingLicense = await User.findOne({ licenseNumber });
         if (existingLicense) {
           return res.status(400).json({
@@ -89,9 +78,7 @@ class AuthController {
           });
         }
 
-        // ===========================================
-        // 5️⃣ Check unique NID number
-        // ===========================================
+        // Check unique NID number
         const existingNID = await User.findOne({ nidNumber });
         if (existingNID) {
           return res.status(400).json({
@@ -100,46 +87,47 @@ class AuthController {
           });
         }
 
-        // ===========================================
-        // 6️⃣ Upload images to Cloudinary
-        // ===========================================
-        licenseImage = await uploadToCloudinary(
+        // Upload images to Cloudinary and extract URLs only
+        const licenseUpload = await uploadToCloudinary(
           req.files.license[0].buffer,
           "driver_documents"
         );
-        nidImage = await uploadToCloudinary(
+        const nidUpload = await uploadToCloudinary(
           req.files.nid[0].buffer,
           "driver_documents"
         );
-        selfieImage = await uploadToCloudinary(
+        const selfieUpload = await uploadToCloudinary(
           req.files.selfie[0].buffer,
           "driver_documents"
         );
+
+        // Extract only the secure URLs
+        licenseImage = licenseUpload.secure_url;
+        nidImage = nidUpload.secure_url;
+        selfieImage = selfieUpload.secure_url;
       }
 
-      // ===========================================
-      // 7️⃣ Create user
-      // ===========================================
+      // 4️⃣ Create new user
       const user = new User({
         fullName,
         email,
         phoneNumber,
         password,
         role,
-        licenseNumber,
-        licenseImage,
-        nidNumber,
-        nidImage,
-        selfieImage,
-        serviceTypes,
-        insuranceInformation
+        ...(role === "driver" && {
+          licenseNumber,
+          licenseImage,
+          nidNumber,
+          nidImage,
+          selfieImage,
+          serviceTypes,
+          insuranceInformation
+        })
       });
 
       await user.save();
 
-      // ===========================================
-      // 8️⃣ Generate & send OTP
-      // ===========================================
+      // 5️⃣ Generate and send OTP
       const otp = generateOTP();
       await sendOTP(email, otp, "email");
 
@@ -147,25 +135,20 @@ class AuthController {
         userId: user._id,
         otp,
         type: "email_verification",
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 min
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
       });
 
-      // ===========================================
-      // 9️⃣ If driver, create driver profile
-      // ===========================================
+      // 6️⃣ Create driver profile if role is driver
       if (role === "driver") {
-        await new Driver({ userId: user._id }).save();
+        await Driver.create({ userId: user._id });
       }
 
-      // ===========================================
-      // 🔟 Response
-      // ===========================================
+      // 7️⃣ Send success response
       return res.status(201).json({
         success: true,
-        message:
-          role === "driver"
-            ? "Driver registered successfully. Please verify your email. Awaiting admin approval."
-            : "Customer registered successfully. Please verify your email.",
+        message: role === "driver"
+          ? "Driver registered successfully. Please verify your email. Awaiting admin approval."
+          : "Customer registered successfully. Please verify your email.",
         data: {
           userId: user._id,
           fullName: user.fullName,
@@ -179,7 +162,7 @@ class AuthController {
       logger.error("Registration error:", error);
       return res.status(500).json({
         success: false,
-        message: "Internal server error"
+        message: "Internal server error during registration."
       });
     }
   }
