@@ -86,26 +86,18 @@ class AuthController {
             message: "This NID number is already registered."
           });
         }
+    // Upload all images in parallel
+      const [licenseUpload, nidUpload, selfieUpload] = await Promise.all([
+        uploadToCloudinary(req.files.license[0].buffer, "driver_documents"),
+        uploadToCloudinary(req.files.nid[0].buffer, "driver_documents"),
+        uploadToCloudinary(req.files.selfie[0].buffer, "driver_documents")
+      ]);
 
-        // Upload images to Cloudinary and extract URLs only
-        const licenseUpload = await uploadToCloudinary(
-          req.files.license[0].buffer,
-          "driver_documents"
-        );
-        const nidUpload = await uploadToCloudinary(
-          req.files.nid[0].buffer,
-          "driver_documents"
-        );
-        const selfieUpload = await uploadToCloudinary(
-          req.files.selfie[0].buffer,
-          "driver_documents"
-        );
-
-        // Extract only the secure URLs
-        licenseImage = licenseUpload.secure_url;
-        nidImage = nidUpload.secure_url;
-        selfieImage = selfieUpload.secure_url;
-      }
+      // Extract URLs
+      licenseImage = licenseUpload.secure_url;
+      nidImage = nidUpload.secure_url;
+      selfieImage = selfieUpload.secure_url;
+    }
 
       // 4️⃣ Create new user
       const user = new User({
