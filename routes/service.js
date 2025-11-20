@@ -17,7 +17,7 @@ const uploadFields = uploadMultiple([
 ]);
 
 
-router.post('/services', uploadFields, serviceController.createService);
+router.post('/create', uploadFields, serviceController.createService);
 router.put('/services/:serviceId',  uploadFields, serviceController.updateService);
 router.delete('/services/:serviceId', serviceController.deleteService);
 

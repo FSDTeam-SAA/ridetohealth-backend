@@ -2,19 +2,23 @@ const Service = require('../models/Service');
 const Driver = require('../models/Driver');
 const logger = require('../utils/logger');
 const Vehicle = require('../models/Vehicle');
+const { uploadToCloudinary } = require('../services/cloudinaryService');
 
 class ServiceController {
 
   async createService(req, res) {
       try {
+
         const { name, description } = req.body;
         if (!req.files?.serviceImage?.[0]) {
           return res.status(400).json({ success: false, message: 'Image is required' });
         }
   
         let serviceImage = null;
-        serviceImage = await uploadToCloudinary(req.files.serviceImage[0].buffer, 'services');
-  
+        const uploadImage = await uploadToCloudinary(req.files.serviceImage[0].buffer, 'services');
+        
+        serviceImage = uploadImage.secure_url;
+        
         const service = new Service({name , serviceImage, description });
         await service.save();
   
