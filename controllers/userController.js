@@ -79,7 +79,11 @@ class UserController {
         });
       }
 
-      const imageUrl = await uploadToCloudinary(req.file.buffer, 'profile_images');
+      let imageUrl = null;
+      const uploadImage = await uploadToCloudinary(req.file.buffer, 'profile_images');
+
+      imageUrl = uploadImage.secure_url;
+
 
       await User.findByIdAndUpdate(req.user.userId, {
         profileImage: imageUrl

@@ -1,7 +1,7 @@
 const express = require('express');
 const userController = require('../controllers/userController');
 const { authenticateToken } = require('../middleware/auth');
-const {upload}=require('../middleware/upload')
+const { upload }=require('../middleware/upload')
 const router = express.Router();
 
 router.use(authenticateToken);
