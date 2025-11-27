@@ -44,6 +44,41 @@ class DriverController {
       });
     }
   }
+ async getProfileIdBased(req, res) {
+  try {
+
+    const { driverId } = req.params; // Driver ID from URL params
+    console.log(driverId);
+    
+    const driver = await Driver.findById(driverId);
+    if (!driver) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Driver not found" 
+      });
+    }
+
+    const user = await User.findById(driver.userId);
+    
+    return res.json({
+      success: true,
+      message: "Driver profile fetched successfully",
+      data: {
+        user,
+        driver
+      }
+    });
+
+  } catch (error) {
+    console.error("Get driver profile error:", error);
+    
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
+
   async updateProfile(req, res) {
     try {
       
