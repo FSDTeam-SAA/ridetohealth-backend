@@ -12,6 +12,7 @@ const uploadFields = uploadMultiple([
 ]);
 
 // router.post('/register', uploadFields, driverController.register);
+router.get('/profile/:driverId', driverController.getProfileIdBased);
 
 router.use(authenticateToken);
 
