@@ -2,6 +2,7 @@ const Driver = require("../models/Driver");
 const User = require("../models/User");
 const Ride = require("../models/Ride");
 const Vehicle = require("../models/Vehicle");
+const Service = require("../models/Service");
 const { uploadToCloudinary } = require("../services/cloudinaryService");
 const logger = require("../utils/logger");
 const Stripe = require("stripe");
@@ -523,11 +524,9 @@ async updateLocation(req, res) {
           message: "Driver not found",
         });
       }
-      console.log("driver_userId", driver);
 
       const vehicle = await Vehicle.findOne({ driverId: driver._id });
-
-      console.log("vehicle", vehicle);
+      const service = await Service.findById(vehicle.serviceId);
 
       if (!vehicle) {
         return res.status(404).json({
@@ -535,12 +534,17 @@ async updateLocation(req, res) {
           message: "Vehicle not found",
         });
       }
+
+        if (!service) {
+        return res.status(404).json({
+          success: false,
+          message: "Service not found",
+        });
+      }
       res.json({
         success: true,
         message: "Vehicle information fetched successfully",
-        vehicle: vehicle,
-        licenseNumber: user.licenseNumber,
-        licenseImage: user.licenseImage,
+        data: {vehicle, service}
       });
     } catch (error) {
       console.error("Get vehicle info error:", error);
