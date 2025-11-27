@@ -178,7 +178,7 @@ class PaymentController {
 
       // Calculate split amounts
       const totalAmount = amount;
-      const adminFee = Math.round(totalAmount * 0.05); // 5%
+      const adminFee = Math.round(totalAmount * 0.5); // 20%
       const driverAmount = totalAmount - adminFee;
 
       // Create Checkout Session
