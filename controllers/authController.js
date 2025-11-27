@@ -161,9 +161,16 @@ class AuthController {
         await Driver.create({ userId: user._id });
       }
 
+      const payload = { _id: user._id, role: user.role };
+
+      const token = user.generateAccessToken(payload);
+      const refreshToken = user.generateRefreshToken(payload);
+
       // 7️⃣ Send success response IMMEDIATELY
       return res.status(201).json({
         success: true,
+        token,
+        refreshToken,
         message: role === "driver"
           ? "Driver registered successfully. Please verify your email. Awaiting admin approval."
           : "Customer registered successfully. Please verify your email.",

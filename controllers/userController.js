@@ -1,8 +1,10 @@
 const User = require('../models/User');
 const Ride = require('../models/Ride');
 const Driver = require('../models/Driver');
+const Service = require('../models/Service');
 const { uploadToCloudinary } = require('../services/cloudinaryService');
 const logger = require('../utils/logger');
+const Vehicle = require('../models/Vehicle');
 
 class UserController {
   async getProfile(req, res) {
@@ -345,55 +347,73 @@ class UserController {
   }
 
   async getRiderByDestination(req, res) {
-    try {
-      const { latitude, longitude } = req.query;
+  try {
+    const { latitude, longitude } = req.query;
 
-      if (!latitude || !longitude) {
-        return res.status(400).json({
-          success: false,
-          message: 'Latitude and longitude are required'
-        });
-      }
-
-      const drivers = await Driver.find({
-        status: 'approved',
-        isOnline: true,
-        isAvailable: true,
-        currentLocation: {
-          $near: {
-            $geometry: {
-              type: 'Point',
-              coordinates: [
-                parseFloat(longitude),
-                parseFloat(latitude)
-              ]
-            },
-            $maxDistance: 10000000  // 100 km in meters
-          }
-        }
-      }).populate('userId', 'fullName phoneNumber');
-
-      if (drivers.length === 0) {
-        return res.json({
-          success: false,
-          message: 'No drivers found within 100 km.'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'Nearby drivers found',
-        data: drivers
-      });
-
-    } catch (error) {
-      console.error('Get nearby drivers error:', error);
-      res.status(500).json({
+    // Validate input
+    if (!latitude || !longitude) {
+      return res.status(400).json({
         success: false,
-        message: 'Internal server error'
+        message: 'Latitude and longitude are required'
       });
     }
+
+    // Find drivers near user location
+    const drivers = await Driver.find({
+      status: 'approved',
+      isOnline: true,
+      isAvailable: true,
+      currentLocation: {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [
+              parseFloat(longitude),
+              parseFloat(latitude)
+            ]
+          },
+          $maxDistance: 5000000 // 100 km in meters
+        }
+      }
+    }).populate('userId', 'fullName phoneNumber profileImage');
+
+    // Check driver availability
+    if (drivers.length === 0) {
+      return res.json({
+        success: false,
+        message: 'No drivers found within 100 km.'
+      });
+    }
+
+    // Get service/vehicle details for each driver
+    const driverDetails = await Promise.all(
+      drivers.map(async (driver) => {
+        const vehicle = await Vehicle.findById(driver.vehicleId);
+        const service = await Service.findById(vehicle?.serviceId);
+
+        return {
+          driver,
+          vehicle,
+          service
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      message: 'Nearby drivers found',
+      data: driverDetails
+    });
+
+  } catch (error) {
+    console.error('Get nearby drivers error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
   }
+}
+
 }
 
 module.exports = new UserController();
