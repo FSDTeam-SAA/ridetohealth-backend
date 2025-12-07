@@ -4,10 +4,53 @@
 
 const logger = require('../utils/logger.js');
 
-const handleJoinUser = (socket, senderId) => {
-  socket.join(`user:${senderId}`);
-  socket.emit("connected");
-  logger.info(`👤 User ${senderId} joined personal room: user:${senderId}`);
+// const handleJoinUser = (socket, userId) => {
+//   socket.join(`user:${userId}`);
+//   socket.emit("connected");
+//   logger.info(`👤 User ${userId} joined personal room: user:${userId}`);
+// };
+
+const handleJoinUser = (socket, userId) => {
+  if (!userId) {
+    logger.error('❌ Join event without userId');
+    return;
+  }
+
+  // ✅ Use "user:" prefix for customers
+  const userRoom = `user:${userId}`;
+  socket.join(userRoom);
+  socket.userId = userId;
+  
+  logger.info(`👤 User ${userId} joined personal room: ${userRoom}`);
+  
+  socket.emit('joined', {
+    success: true,
+    room: userRoom,
+    message: 'Successfully joined user room'
+  });
+};
+
+// ✅ CORRECT: Driver joins with "driver:" prefix
+const handleJoinDriver = (socket, driverId) => {
+  if (!driverId) {
+    logger.error('❌ join-driver event without driverId');
+    return;
+  }
+
+  const driverRoom = `driver:${driverId}`;
+  socket.join(driverRoom);
+  socket.driverId = driverId;
+  
+  const rooms = Array.from(socket.rooms);
+  logger.info(`🚗 Driver ${driverId} joined room: ${driverRoom}`);
+  logger.info(`📋 All rooms for this socket: ${JSON.stringify(rooms)}`);
+  
+  socket.emit('driver-joined', {
+    success: true,
+    room: driverRoom,
+    message: 'Successfully joined driver room',
+    allRooms: rooms
+  });
 };
 
 const handleJoinChat = (socket, data) => {
@@ -84,36 +127,36 @@ const handleLeaveChat = (socket, data) => {
  * Handle driver joining the tracking system
  * Driver joins their own room to broadcast location updates
  */
-const handleJoinDriver = async (socket, driverData) => {
-  try {
-    // Extract actual driverId string
-    const driverId = driverData?.driverId || driverData;
+// const handleJoinDriver = async (socket, driverData) => {
+//   try {
+//     // Extract actual driverId string
+//     const driverId = driverData?.driverId || driverData;
 
-    // Create driver room
-    socket.join(`driver:${driverId}`);
-    socket.driverId = driverId;
+//     // Create driver room
+//     socket.join(`driver:${driverId}`);
+//     socket.driverId = driverId;
 
-    console.log('Driver ID in socket:', driverId);
-    console.log('Driver room joined:', `driver:${driverId}`);
+//     console.log('Driver ID in socket:', driverId);
+//     console.log('Driver room joined:', `driver:${driverId}`);
 
-    logger.info(`🚗 Driver ${driverId} joined tracking room: driver:${driverId}`);
+//     logger.info(`🚗 Driver ${driverId} joined tracking room: driver:${driverId}`);
 
-    // Fetch driver from DB
-    const driver = await Driver.findOne({ userId: driverId });
+//     // Fetch driver from DB
+//     const driver = await Driver.findOne({ userId: driverId });
     
-    if (driver?.currentLocation) {
-      socket.emit('location-connected', {
-        location: {
-          latitude: driver.currentLocation.coordinates[1],
-          longitude: driver.currentLocation.coordinates[0],
-        },
-      });
-    }
-  } catch (err) {
-    logger.error('❌ Error in handleJoinDriver:', err);
-    socket.emit('error', { message: 'Failed to join driver tracking' });
-  }
-};
+//     if (driver?.currentLocation) {
+//       socket.emit('location-connected', {
+//         location: {
+//           latitude: driver.currentLocation.coordinates[1],
+//           longitude: driver.currentLocation.coordinates[0],
+//         },
+//       });
+//     }
+//   } catch (err) {
+//     logger.error('❌ Error in handleJoinDriver:', err);
+//     socket.emit('error', { message: 'Failed to join driver tracking' });
+//   }
+// };
 
 /**
  * Handle customer tracking a specific driver
@@ -294,4 +337,5 @@ module.exports = {
   handleTrackDriver,
   handleStopTrackingDriver,
   handleDriverLocationUpdate,
+  handleJoinDriver,
 };
