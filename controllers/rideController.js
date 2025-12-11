@@ -319,111 +319,112 @@ class RideController {
     }
   }
 
-  async updateRideStatus(req, res) {
-    try {
-      const { rideId } = req.params;
-      const { status, location } = req.body;
+ async updateRideStatus(req, res) {
+  try {
+    const { rideId } = req.params;
+    const { status, location } = req.body;
 
-      const ride = await Ride.findById(rideId);
-      if (!ride) {
-        return res.status(404).json({
-          success: false,
-          message: "Ride not found"
-        });
-      }
+    const ride = await Ride.findById(rideId);
+    console.log("Updating ride status:", ride, status, location);
 
-      // Update ride status
-      ride.status = status;
-      ride.timeline.push({
-        status,
-        timestamp: new Date()
-      });
-
-      // Save location if provided
-      if (location) {
-        ride.route.push({
-          latitude: location.latitude,
-          longitude: location.longitude,
-          timestamp: new Date()
-        });
-      }
-
-      // Handle completion logic
-      if (status === "completed") {
-        const actualDistance = ride.route.length >= 2
-          ? calculateDistance(
-              ride.route[0].latitude,
-              ride.route[0].longitude,
-              ride.route[ride.route.length - 1].latitude,
-              ride.route[ride.route.length - 1].longitude
-            )
-          : ride.estimatedDistance;
-
-        const service = await Service.findById(ride.serviceId);
-
-        ride.actualDistance = actualDistance;
-        ride.finalFare = calculateFare(service, actualDistance, ride.actualDuration);
-
-        ride.commission.amount = ride.finalFare * ride.commission.rate;
-
-        // Update driver wallet
-        const driver = await Driver.findOne({userId: ride.driverId});
-        const driverEarning = ride.finalFare - ride.commission.amount;
-
-        driver.isAvailable = true;
-        driver.earnings.total += driverEarning;
-        driver.earnings.available += driverEarning;
-        await driver.save();
-
-        // Payment System
-        if (ride.paymentMethod === "stripe") {
-          const customer = await User.findById(ride.customerId);
-
-          if (customer.wallet.balance >= ride.finalFare) {
-            customer.wallet.balance -= ride.finalFare;
-            customer.wallet.transactions.push({
-              type: "card",
-              amount: ride.finalFare,
-              description: `Payment for ride ${ride._id}`,
-              timestamp: new Date()
-            });
-
-            await customer.save();
-
-            ride.paymentStatus = "completed";
-          } else {
-            ride.paymentStatus = "failed";
-          }
-        }
-      }
-
-      await ride.save();
-
-      // Emit socket update
-      const io = req.app.get("io");
-      io.to(`user_${ride.customerId}`).emit("ride_status_update", {
-        rideId: ride._id.toString(),
-        status,
-        location
-      });
-
-      res.json({
-        success: true,
-        message: "Ride status updated successfully",
-        data: {
-          rideId: ride._id,
-          status
-        }
-      });
-
-    } catch (error) {
-      logger.error("Update ride status error:", error);
-      res.status(500).json({
+    if (!ride) {
+      return res.status(404).json({
         success: false,
-        message: "Internal server error"
+        message: "Ride not found",
       });
     }
+
+    const driver = await Driver.findOne({ userId: ride.driverId.toString() });
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver not found",
+      });
+    }
+
+    ride.status = status;
+    ride.timeline.push({
+      status,
+      timestamp: new Date(),
+    });
+
+    if (location) {
+      ride.route.push({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        timestamp: new Date(),
+      });
+
+      driver.currentLocation.coordinates = [
+        location.longitude,
+        location.latitude,
+      ];
+    }
+    console.log("check", driver);
+    if (status === "completed") {
+      ride.completedAt = new Date();
+
+      const paymentMethod = ride.paymentMethod; 
+      const totalPrice = ride.totalFare ?? 0;
+      console.log("Payment Method:", paymentMethod, "Total Price:", totalPrice);
+
+      ride.paymentStatus = "successfull";
+
+      if (paymentMethod === "cash" || paymentMethod === "stripe" || paymentMethod === "card") {
+        driver.earnings.total += totalPrice;
+        driver.earnings.available += totalPrice;
+      }
+      driver.isAvailable = true;
+      driver.currentRideId = null;
+    }
+
+    // Save Update
+    await ride.save();
+    await driver.save();
+
+    // SOCKET EMIT TO USER
+    // const io = req.app.get("io");
+    // io.to(`user_${ride.customerId}`).emit("ride_status_update", {
+    //   rideId: ride._id.toString(),
+    //   status,
+    //   location,
+    // });/
+
+     // Emit socket updates
+      const io = req.app.get("io");
+
+      // Notify Customer
+      io.to(`user_${ride.customerId}`).emit("ride_status_update", {
+        rideId: ride._id,
+        message: "Ride completed successfully",
+      });
+
+      // Notify Driver (if assigned)
+      if (ride.driverId) {
+        const driver = await Driver.findOne({userId:ride.driverId.toString()}).populate("userId");
+
+        io.to(`driver_${driver.userId._id}`).emit("ride_status_update", {
+          rideId: ride._id,
+          message: "Ride completed successfully",
+        });
+      }
+
+    return res.json({
+      success: true,
+      message: "Ride status updated successfully",
+      data: {
+        rideId: ride._id,
+        status,
+      },
+    });
+  } catch (error) {
+    logger.error("Update ride status error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
+}
 
 
   async cancelRide(req, res) {
