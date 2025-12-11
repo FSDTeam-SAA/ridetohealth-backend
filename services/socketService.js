@@ -20,13 +20,22 @@ const socketHandler = (io, socket) => {
   logger.info(`🟢 New socket connection: ${socket.id}`);
   
   // User joins their personal room
-  socket.on('join', (data) => {
-    if (data.senderId) {
-      handleJoinUser(socket, data.senderId);
+  socket.on('join-user', (data) => {
+    if (data.userId) {
+      console.log('User ID:', data.userId);
+      handleJoinUser(socket, data.userId);
     } else {
       logger.error("❌ Join event received without senderId");
     }
   });
+  socket.on('join-driver', (data) => {
+  if (data.driverId) {
+    console.log('Driver ID:', data.driverId);
+    handleJoinDriver(socket, data.driverId);
+  } else {
+    logger.error("❌ join-driver event received without driverId");
+  }
+});
 
   // User joins a specific chat room
   socket.on('join-chat', (data) => {

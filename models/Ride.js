@@ -15,6 +15,7 @@ const rideSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service'
   },
+
   pickupLocation: {
     type: {
       type: String,
@@ -53,6 +54,11 @@ const rideSchema = new mongoose.Schema({
   },
   estimatedFare: {
     type: Number
+  },
+
+  totalFare: {
+    type: Number,
+    required: true
   },
   actualDistance: {
     type: Number,

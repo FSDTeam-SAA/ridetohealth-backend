@@ -11,155 +11,149 @@ const logger = require('../utils/logger');
 
 
 class RideController {
-  async requestRide(req, res) {
-    try {
-      const {
-        serviceId,
-        pickupLocation,
-        dropoffLocation,
-        paymentMethod,
-        promoCode,
-        driverId
-      } = req.body;
+async requestRide(req, res) {
+  try {
+    const {
+      pickupLocation,
+      dropoffLocation,
+      paymentMethod,
+      driverId,
+      totalFare
+    } = req.body;
 
-      const customerId = req.user.userId;
-      const user = await User.findById(customerId);
+    // ✅ Convert to string immediately
+    const customerId = req.user.userId.toString();
+    const customer = await User.findById(customerId);
 
-      // console.log('Request ride by user:', customerId, req.body);
+    console.log('Customer ID (string):', customerId); // Clean output
 
-      // Validate required fields
-      if (!driverId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Driver ID is required'
-        });
-      }
-
-      // Check if user has any active rides
-      const activeRide = await Ride.findOne({
-        customerId,
-        status: { $in: ['requested', 'accepted', 'driver_arrived', 'in_progress'] }
-      });
-
-      if (activeRide) {
-        return res.status(400).json({
-          success: false,
-          message: 'You already have an active ride'
-        });
-      }
-
-      // Verify service availability
-      const service = await Service.findById(serviceId);
-      if (!service || !service.isActive) {
-        return res.status(404).json({
-          success: false,
-          message: 'Service not available'
-        });
-      }
-
-      const driver = await Driver.findOne({userId: driverId});
-      console.log("Selected driver:", driver);
-      
-      if (driver.status !== 'approved' || !driver.isOnline || !driver.isAvailable) {
-        return res.status(404).json({
-          success: false,
-          message: 'Driver is not available'
-        });
-      }
-
-      // Calculate distance and fare
-      const distance = calculateDistance(
-        pickupLocation.coordinates,
-        dropoffLocation.coordinates
-      );
-
-      let fare = calculateFare(service, distance, 0);
-
-      // Apply promo code if provided
-      let promoDiscount = 0;
-      if (promoCode) {
-        const promo = await PromoCode.findOne({
-          code: promoCode.toUpperCase(),
-          isActive: true,
-          validFrom: { $lte: new Date() },
-          validUntil: { $gte: new Date() }
-        });
-
-        if (promo && fare >= promo.minimumOrderValue) {
-          if (promo.discountType === 'percentage') {
-            promoDiscount = Math.min(
-              fare * (promo.discountValue / 100),
-              promo.maxDiscount || fare
-            );
-          } else {
-            promoDiscount = Math.min(promo.discountValue, fare);
-          }
-          fare -= promoDiscount;
-        }
-      }
-
-      // Create ride request
-      const ride = new Ride({
-        customerId,
-        serviceId,
-        driverId,
-        pickupLocation,
-        dropoffLocation,
-        estimatedDistance: distance,
-        estimatedDuration: Math.ceil((distance / 30) * 60),
-        estimatedFare: fare,
-        paymentMethod,
-        promoCode: promoCode ? { code: promoCode, discount: promoDiscount } : undefined
-      });
-
-      await ride.save();
-
-      // Send immediate notification to the selected driver
-      const io = req.app.get('io');
-        io.to(`driver:${driverId}`).emit('ride_request', {
-        senderId: customerId,
-        receiverId: driverId,
-        rideId: ride._id,
-        pickup: pickupLocation,
-        dropoff: dropoffLocation,
-        estimatedFare: fare,
-        distance,
-        customerName: user.fullName || 'Customer'
-    });
-
-      const notification = await sendNotification({
-        senderId: customerId,
-        receiverId: driverId,
-        title: 'New Ride Request',
-        message: `New ride request from ${pickupLocation.address}`,
-        type: 'ride_request',
-        data: { rideId: ride._id }
-      });
-
-      res.status(201).json({
-        success: true,
-        message: 'Ride requested successfully',
-        data: {
-          rideId: ride._id,
-          estimatedFare: fare,
-          estimatedDistance: distance,
-          driverInfo: {
-            id: driver._id,
-            name: user.fullName,
-            phone: user.phoneNumber
-          }
-        },
-        notification: notification
-      });
-
-    } catch (error) {
-      logger.error('Request ride error:', error);
-      res.status(500).json({
+    if (!driverId) {
+      return res.status(400).json({
         success: false,
-        message: 'Internal server error'
+        message: 'Driver ID is required'
       });
     }
+
+    // Check if user has any active rides
+    const activeRide = await Ride.findOne({
+      customerId,
+      status: { $in: ['requested', 'accepted', 'driver_arrived', 'in_progress'] }
+    });
+
+    if (activeRide) {
+      return res.status(400).json({
+        success: false,
+        message: 'You already have an active ride'
+      });
+    }
+
+    // ✅ Populate and convert to string
+    const driver = await Driver.findById(driverId).populate('userId');
+    
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: 'Driver not found'
+      });
+    }
+
+    // ✅ Convert all IDs to strings
+    const driverUserId = driver.userId._id.toString();
+    const driverDocId = driver._id.toString();
+
+    console.log('═══════════════════════════════════════');
+    console.log('🚕 RIDE REQUEST');
+    console.log('Customer ID:', customerId);
+    console.log('Driver User ID:', driverUserId);
+    console.log('Driver Doc ID:', driverDocId);
+    console.log('═══════════════════════════════════════');
+
+    if (driver.status !== 'approved' || !driver.isOnline || !driver.isAvailable) {
+      return res.status(400).json({
+        success: false,
+        message: 'Driver is not available'
+      });
+    }
+
+    // Create ride request
+    const ride = new Ride({
+      customerId,
+      driverId: driverUserId, // Store User ID as string
+      pickupLocation,
+      dropoffLocation,
+      totalFare,
+      paymentMethod
+    });
+
+    await ride.save();
+
+    // ✅ Convert ride ID to string
+    const rideIdString = ride._id.toString();
+
+    // Emit to driver
+    const io = req.app.get('io');
+    const targetRoom = `driver:${driverUserId}`;
+    
+    console.log('📤 Emitting to room:', targetRoom);
+    console.log('Ride ID:', rideIdString);
+    
+    // Check sockets in room
+    const socketsInRoom = await io.in(targetRoom).allSockets();
+    console.log('👥 Sockets in room:', socketsInRoom.size);
+    
+    if (socketsInRoom.size === 0) {
+      console.warn('⚠️ WARNING: No sockets in room! Driver not connected.');
+    }
+
+    // ✅ Send only string IDs in socket event
+    io.to(targetRoom).emit('ride_request', {
+      senderId: customerId,           // ✅ String
+      receiverId: driverUserId,        // ✅ String
+      rideId: rideIdString,            // ✅ String
+      pickup: pickupLocation,
+      dropoff: dropoffLocation,
+      totalFare,
+      customerName: customer.fullName || 'Customer',
+      customerPhone: customer.phoneNumber || '',
+      customerImage: customer.profileImage || ''
+    });
+
+    // Send notification
+    const notification = await sendNotification({
+      senderId: customerId,
+      receiverId: driverUserId,
+      title: 'New Ride Request',
+      message: `New ride request from ${pickupLocation.address}`,
+      type: 'ride_request',
+      data: { rideId: rideIdString } // ✅ String
+    });
+
+    // ✅ Return clean string IDs in response
+    res.status(201).json({
+      success: true,
+      message: 'Ride requested successfully',
+      data: {
+        rideId: rideIdString,           // ✅ String
+        totalFare,
+        driverInfo: {
+          id: driverDocId,              // ✅ String
+          userId: driverUserId,         // ✅ String
+          name: driver.userId.fullName,
+          phone: driver.userId.phoneNumber
+        }
+      },
+      notification
+    });
+
+  } catch (error) {
+    logger.error('Request ride error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
   }
+}
 
   async acceptRide(req, res) {
     try {
