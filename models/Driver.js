@@ -99,6 +99,25 @@ const driverSchema = new mongoose.Schema({
     count3: { type: Number, default: 0 },
     count4: { type: Number, default: 0 },
     count5: { type: Number, default: 0 },
+    reviews: {
+      type: [{
+        rideId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Ride'
+        },
+        customerId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User'
+        },
+        rating: Number,
+        comment: String,
+        ratedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      }],
+      default: []
+    },
   },
   heading: {
     type: Number, // Direction in degrees (0-360)

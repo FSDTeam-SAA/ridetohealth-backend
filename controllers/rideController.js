@@ -510,6 +510,7 @@ async requestRide(req, res) {
     const { rating, comment } = req.body;
     const userId = req.user.userId;
     const userRole = req.user.role;
+    const ratingComment = comment || '';
 
     if (userRole !== 'customer') {
       return res.status(403).json({
@@ -557,7 +558,7 @@ async requestRide(req, res) {
     if (!ride.rating) ride.rating = {};
     ride.rating.customerToDriver = {
       rating,
-      comment: comment || '',
+      comment: ratingComment,
       ratedAt: new Date()
     };
     await ride.save();
@@ -583,9 +584,22 @@ async requestRide(req, res) {
         count2: 0,
         count3: 0,
         count4: 0,
-        count5: 0
+        count5: 0,
+        reviews: []
       };
     }
+
+    if (!driver.ratings.reviews) {
+      driver.ratings.reviews = [];
+    }
+
+    driver.ratings.reviews.unshift({
+      rideId: ride._id,
+      customerId: ride.customerId,
+      rating,
+      comment: ratingComment,
+      ratedAt: new Date(),
+    });
 
     // FIX: Correct array access syntax
     driver.ratings[`count${rating}`] += 1;
@@ -613,6 +627,7 @@ async requestRide(req, res) {
     io.to(`driver_${driver.userId}`).emit("new_rating", {
       rideId: ride._id,
       rating,
+      comment: ratingComment,
       averageRating: driver.ratings.average.toFixed(2),
       message: `You received a ${rating}-star rating`
     });
@@ -624,7 +639,7 @@ async requestRide(req, res) {
       data: {
         rideId: ride._id,
         rating,
-        comment
+        comment: ratingComment
       }
     });
   } catch (error) {

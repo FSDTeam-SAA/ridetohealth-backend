@@ -9,6 +9,7 @@ router.use(authenticateToken);
 router.get('/profile', userController.getProfile);
 router.put('/profile', userController.updateProfile);
 router.post('/profile/image', upload.single('image'), userController.uploadProfileImage);
+router.put('/profile/picture', upload.single('profileImage'), userController.uploadProfileImage);
 router.put('/location', userController.updateLocation);
 router.post('/saved-places', userController.addSavedPlace);
 router.get('/saved-places', userController.getSavedPlaces);
