@@ -1,7 +1,7 @@
 const express = require('express');
 const driverController = require('../controllers/driverController');
 const { authenticateToken } = require('../middleware/auth');
-const { uploadMultiple } = require('../middleware/upload');
+const { uploadMultiple, upload } = require('../middleware/upload');
 const router = express.Router();
 
 
@@ -17,7 +17,7 @@ router.get('/profile/:driverId', driverController.getProfileIdBased);
 router.use(authenticateToken);
 
 router.get('/profile', driverController.getProfile);
-router.put('/profile', driverController.updateProfile);
+router.put('/profile', upload.single('profileImage'), driverController.updateProfile);
 router.put('/location', driverController.updateLocation);
 router.put('/online-status', driverController.toggleOnlineStatus);
 router.get('/trip-history', driverController.getTripHistory);
