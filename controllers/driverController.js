@@ -91,20 +91,6 @@ class DriverController {
           message: "User not found" 
         });
       }
-      let profileImage = user.profileImage;
-
-      if (req.file) {
-        try {
-          const uploadResult = await uploadToCloudinary(req.file.buffer, "profile_images");
-          profileImage = uploadResult.secure_url;
-        } catch (uploadError) {
-          logger.error("Profile image upload error:", uploadError);
-          return res.status(500).json({
-            success: false,
-            message: "Failed to upload profile image",
-          });
-        }
-      }
       const {
         fullName,
         phoneNumber,
@@ -116,26 +102,21 @@ class DriverController {
         emergency_contact,
       } = req.body;
 
-      // ✅ Update User basic info
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          fullName,
-          phoneNumber,
-          street_address,
-          city,
-          state,
-          zipcode,
-          date_of_birth,
-          emergency_contact,
-          profileImage,
-        },
-        { new: true }
-      );
+      // ?. Update User basic info
+      await User.findByIdAndUpdate(userId, {
+        fullName,
+        phoneNumber,
+        street_address,
+        city,
+        state,
+        zipcode,
+        date_of_birth,
+        emergency_contact,
+      });
       res.json({
         success: true,
         message: "Driver profile updated successfully",
-        data: updatedUser,
+        data: user,
       });
     } catch (error) {
       console.error("Update driver profile error:", error);
@@ -750,3 +731,4 @@ async updateLocation(req, res) {
 
 module.exports = new DriverController();
 // module.exports = new RideController();
+
