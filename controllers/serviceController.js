@@ -96,27 +96,53 @@ class ServiceController {
     }
   }
     async updateService(req, res) {
-      try {
-        const { serviceId } = req.params;
-       
-        let serviceImage = null;
-        serviceImage = await uploadToCloudinary(req.files.serviceImage[0].buffer, 'services');
-  
-         const service = await Service.findByIdAndUpdate(
-          serviceId,
-          { serviceImage, ...req.body },
-          { new: true, runValidators: true }
-        );
-  
-        if (!service) return res.status(404).json({ success: false, message: 'Service not found' });
-  
-        res.json({ success: true, message: 'Service updated successfully', data: service });
-  
-      } catch (error) {
-        logger.error('Update service error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-      }
+  try {
+    const { serviceId } = req.params;
+
+    // 1️⃣ Find existing service
+    const existingService = await Service.findById(serviceId);
+    if (!existingService) {
+      return res.status(404).json({
+        success: false,
+        message: "Service not found",
+      });
     }
+
+    let serviceImage = existingService.serviceImage; // keep old image
+
+    // 2️⃣ Upload ONLY if new image is sent
+    if (req.files?.serviceImage?.length) {
+      serviceImage = await uploadToCloudinary(
+        req.files.serviceImage[0].buffer,
+        "services"
+      );
+    }
+
+    // 3️⃣ Update service
+    const service = await Service.findByIdAndUpdate(
+      serviceId,
+      {
+        name: req.body.name,
+        description: req.body.description,
+        serviceImage,
+      },
+      { new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      message: "Service updated successfully",
+      data: service,
+    });
+  } catch (error) {
+    logger.error("Update service error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+}
+
   
     async deleteService(req, res) {
       try {

@@ -263,7 +263,7 @@ class AdminController {
       const { taxiName, color, model, plateNumber, year, vin } = req.body;
 
       const createVehicle = new Vehicle({
-        serviceId, 
+        serviceId,  
         taxiName, 
         color, 
         model,
