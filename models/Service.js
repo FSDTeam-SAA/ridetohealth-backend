@@ -21,6 +21,10 @@ const serviceSchema = new mongoose.Schema({
     type: Number,
     default: 10
   },
+  perMileRate: {
+    type: Number,
+    default: 3
+  },
   perMinuteRate: {
     type: Number,
     default: 2

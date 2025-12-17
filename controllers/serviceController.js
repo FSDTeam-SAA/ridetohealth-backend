@@ -9,7 +9,7 @@ class ServiceController {
   async createService(req, res) {
       try {
 
-        const { name, description } = req.body;
+        const { name, description, perKmRate, perMileRate } = req.body;
         if (!req.files?.serviceImage?.[0]) {
           return res.status(400).json({ success: false, message: 'Image is required' });
         }
@@ -19,7 +19,7 @@ class ServiceController {
         
         serviceImage = uploadImage.secure_url;
         
-        const service = new Service({name , serviceImage, description });
+        const service = new Service({name , serviceImage, description, perKmRate, perMileRate });
         await service.save();
   
         res.status(201).json({ success: true, message: 'Service created successfully', data: service });

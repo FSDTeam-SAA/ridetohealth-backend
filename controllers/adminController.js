@@ -257,35 +257,34 @@ class AdminController {
   }
   // === Vehicle Management ===
 
-   async createVehicle(req, res) {
-    try {
-      const { serviceId } = req.params;
-      const { taxiName, color, model, plateNumber, year, vin } = req.body;
-              let serviceImage = null;
-        const uploadImage = await uploadToCloudinary(req.files.serviceImage[0].buffer, 'services');
-        
-        serviceImage = uploadImage.secure_url;
+ async createVehicle(req, res) {
+  try {
+    const { serviceId } = req.params;
+    const { taxiName, color, model, plateNumber, year, vin } = req.body;
 
-      const createVehicle = new Vehicle({
-        serviceId,  
-        taxiName, 
-        color, 
-        model,
-        plateNumber, 
-        serviceImage,
-        year, 
-        vin
-       });
+    const createVehicle = new Vehicle({
+      serviceId,  
+      taxiName, 
+      color, 
+      model,
+      plateNumber, 
+      year, 
+      vin
+    });
 
-      await createVehicle.save();
+    await createVehicle.save();
 
-      res.json({ success: true, message: 'Vehicle updated successfully', data: createVehicle });
+    res.json({ 
+      success: true, 
+      message: 'Vehicle created successfully', 
+      data: createVehicle 
+    });
 
-    } catch (error) {
-      logger.error('Update vehicle error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
+  } catch (error) {
+    logger.error('Create vehicle error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
+}
 
   async getAllVehicles(req, res){
     try {
@@ -293,7 +292,7 @@ class AdminController {
       const { page = 1, limit = 10 } = req.query;
 
       const vehicles = await Vehicle.find()
-        .populate('serviceId', 'name description')
+        .populate('serviceId', 'name description serviceImage' )
         .populate({
           path: 'driverId',
           select: 'userId status isOnline isAvailable',

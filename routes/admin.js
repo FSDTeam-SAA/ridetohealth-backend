@@ -27,7 +27,7 @@ router.get('/drivers/:driverId', adminController.getDriverById);
 router.delete('/drivers/:driverId', adminController.deleteDriverById);
 
 // Vehicle Management
-router.post('/services/:serviceId/vehicle',uploadFields, adminController.createVehicle);
+router.post('/services/:serviceId/vehicle', adminController.createVehicle);
 router.put('/services/vehicle/assign-vehicle', adminController.assignedDriverToVehicle); 
 router.get('/vehicle', adminController.getAllVehicles);
 router.delete('/services/vehicle/:vehicleId', adminController.deleteVehicleById);
