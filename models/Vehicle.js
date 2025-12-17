@@ -6,6 +6,7 @@ const vehicleSchema = new mongoose.Schema({
         ref: 'Service',
         required: true
     },
+    serviceImage: String,
     driverId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Driver',

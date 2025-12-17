@@ -80,7 +80,7 @@ class NotificationController {
   async markAsRead(req, res) {
     try {
       const { notificationId } = req.params;
-      const userId = req.user.userId;
+      const userId = req.user._id;
 
       await Notification.findOneAndUpdate(
         { _id: notificationId, userId },

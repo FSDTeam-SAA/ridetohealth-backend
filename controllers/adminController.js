@@ -261,6 +261,10 @@ class AdminController {
     try {
       const { serviceId } = req.params;
       const { taxiName, color, model, plateNumber, year, vin } = req.body;
+              let serviceImage = null;
+        const uploadImage = await uploadToCloudinary(req.files.serviceImage[0].buffer, 'services');
+        
+        serviceImage = uploadImage.secure_url;
 
       const createVehicle = new Vehicle({
         serviceId,  
@@ -268,6 +272,7 @@ class AdminController {
         color, 
         model,
         plateNumber, 
+        serviceImage,
         year, 
         vin
        });
