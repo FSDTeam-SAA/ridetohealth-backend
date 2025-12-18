@@ -825,6 +825,26 @@ class AdminController {
       });
     }
   }
+
+  async deleteRideById(req, res) {
+    try {
+      const { rideId } = req.params;
+      const ride = await Ride.findByIdAndDelete(rideId);
+
+      if (!ride) {
+        return res.status(404).json({ success: false, message: 'Ride not found' });
+      }
+      res.json({ 
+        success: true, 
+        message: 'Ride deleted successfully' ,
+        data:ride
+      });
+    }
+   catch (error) {
+      logger.error('Delete ride by ID error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
 }
 
 module.exports = new AdminController();

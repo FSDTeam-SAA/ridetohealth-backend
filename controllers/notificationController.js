@@ -82,14 +82,15 @@ class NotificationController {
       const { notificationId } = req.params;
       const userId = req.user._id;
 
-      await Notification.findOneAndUpdate(
+      const notification = await Notification.findOneAndUpdate(
         { _id: notificationId, userId },
         { isRead: true }
       );
 
       res.json({
         success: true,
-        message: 'Notification marked as read'
+        message: 'Notification marked as read',
+        data: notification
       });
     } catch (error) {
       logger.error('Mark notification as read error:', error);
@@ -99,19 +100,48 @@ class NotificationController {
       });
     }
   }
-
+  // async veiwNotification(req, res) {
+  //   try {
+  //     const { notificationId } = req.params;
+  //     const userId = req.user.userId;
+  //     const notification = await Notification.findOneAndUpdate(
+  //       { _id: notificationId, receiverId: userId },
+  //       { isRead: true },
+  //       { new: true }
+  //     )
+  //     .populate("senderId", "fullName profileImage")    // sender details
+  //     .populate("receiverId", "fullName profileImage");  // receiver details
+  //     if (!notification) {
+  //       return res.status(404).json({
+  //         success: false,
+  //         message: 'Notification not found'
+  //       });
+  //     }
+  //     res.json({
+  //       success: true,
+  //       data: notification
+  //     });
+  //   } catch (error) {
+  //     logger.error('View notification error:', error);
+  //     res.status(500).json({
+  //       success: false,
+  //       message: 'Internal server error'
+  //     });
+  //   } 
+  // }
   async markAllAsRead(req, res) {
     try {
       const userId = req.user.userId;
 
-      await Notification.updateMany(
+      const notification = await Notification.updateMany(
         { userId, isRead: false },
         { isRead: true }
       );
 
       res.json({
         success: true,
-        message: 'All notifications marked as read'
+        message: 'All notifications marked as read',
+        data: notification
       });
     } catch (error) {
       logger.error('Mark all notifications as read error:', error);
