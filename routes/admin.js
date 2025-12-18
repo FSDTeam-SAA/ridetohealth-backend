@@ -19,6 +19,9 @@ const uploadFields = uploadMultiple([
 // Dashboard
 router.get('/dashboard/stats', adminController.getDashboardStats);
 
+//rides
+router.delete('/ride/:rideId', adminController.deleteRideById);
+
 // Driver Management
 router.get('/drivers', adminController.getDrivers);
 router.put('/approved-driver/:driverId', adminController.approvedDriver);
@@ -33,6 +36,7 @@ router.get('/vehicle', adminController.getAllVehicles);
 router.delete('/services/vehicle/:vehicleId', adminController.deleteVehicleById);
 router.get('/services/:serviceId/vehicles', adminController.getVehiclesByService);
 router.get('/services/vehicle/:vehicleId', adminController.getVechileById);
+
 
 
 
