@@ -19,7 +19,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['ride_request', 'ride_accepted', 'ride_completed', 'payment', 'promotion', 'system', 'rating_received', 'driver_request',  "driver_approval", "driver_rejected"],
+    enum: ['ride_request', 'ride_accepted', 'ride_completed', 'payment', 'promotion', 'system', 'rating_received', 'driver_request',  "driver_approval", "driver_rejected", "ride_cancelled"],
   },
   isRead: {
     type: Boolean,
