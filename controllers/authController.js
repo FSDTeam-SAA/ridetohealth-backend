@@ -8,6 +8,9 @@ const { validateRegister, validateLogin } = require('../validators/authValidator
 const logger = require('../utils/logger');
 const { refreshTokenSecret, refreshTokenExpires } = require('../config/config');
 const { uploadToCloudinary } = require("../services/cloudinaryService");
+const { sendNotification } = require('../services/notificationService');
+const dotenv = require('dotenv');
+dotenv.config();
 
 
 class AuthController {
@@ -156,9 +159,22 @@ class AuthController {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000)
       });
 
+      let notification = null;
+
       // 6️⃣ Create driver profile if role is driver
       if (role === "driver") {
-        await Driver.create({ userId: user._id });
+        const adminId = process.env.ADMIN_ID;
+        const driver = await Driver.create({ userId: user._id });
+       
+        // Send notification
+        notification = await sendNotification({
+          senderId: driver._id,
+          receiverId: adminId,
+          title: 'driver_request',
+          message: `New driver request from ${user.fullName}`,
+          type: 'driver_request',
+          data: { adminId: adminId } // ✅ String
+        });
       }
 
       const payload = { _id: user._id, role: user.role };
