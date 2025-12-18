@@ -208,7 +208,7 @@ async requestRide(req, res) {
 
       // 6️⃣ Emit Socket Notification
       const io = req.app.get("io");
-      const customerRoom = `user_${ride.customerId.toString()}`;
+      const customerRoom = `user:${ride.customerId.toString()}`;
 
 
       io.to(customerRoom).emit("ride_accepted", {
@@ -459,9 +459,11 @@ async requestRide(req, res) {
 
       // Emit socket updates
       const io = req.app.get("io");
+      const customerRoom = `user:${ride.customerId.toString()}`;
+      const driverRoom = `driver:${driverUserId}`;
 
       // Notify Customer
-      io.to(`user_${ride.customerId}`).emit("ride_cancelled", {
+      io.to(customerRoom).emit("ride_cancelled", {
         rideId: ride._id,
         cancelledBy: ride.cancelledBy,
         reason
@@ -471,7 +473,7 @@ async requestRide(req, res) {
       const driver = await Driver.findOne({ userId: driverUserId }).populate("userId");
       if (ride.driverId) {
 
-        io.to(`driver_${driverUserId}`).emit("ride_cancelled", {
+        io.to(driverRoom).emit("ride_cancelled", {
           rideId: ride._id,
           cancelledBy: ride.cancelledBy,
           reason
