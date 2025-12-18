@@ -166,23 +166,33 @@ class PaymentController {
 
   
 
- async createRidePayment (req, res) {
-    try {
-      const rideId = req.user.userId; // or your ride/project id
-      
-      const { amount, stripeDriverId, driverId, title } = req.body;
+async createRidePayment(req, res) {
+  try {
+    const rideId = req.user.userId;
+    const { amount, stripeDriverId, driverId, title } = req.body;
 
-      if (!amount || !stripeDriverId || !driverId) {
-        return res.status(400).json({ success: false, error: 'Missing required fields' });
-      }
+    if (!amount) {
+      return res.status(400).json({
+        success: false,
+        error: 'Amount is required',
+      });
+    }
 
-      // Calculate split amounts
-      const totalAmount = amount;
-      const adminFee = Math.round(totalAmount * 0.5); // 20%
-      const driverAmount = totalAmount - adminFee;
+    let session;
+    const totalAmount = Number(amount);
 
-      // Create Checkout Session
-      const session = await stripe.checkout.sessions.create({
+    let adminFee = 0;
+    let driverAmount = 0;
+
+    /**
+     * CASE 1: Driver Stripe Account EXISTS
+     * Split payment between Admin & Driver
+     */
+    if (stripeDriverId) {
+      adminFee = Math.round(totalAmount * 0.5); // 50% admin fee
+      driverAmount = totalAmount - adminFee;
+
+      session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
           {
@@ -210,32 +220,71 @@ class PaymentController {
           },
         },
       });
-      // Save payment info to database
-      await Payment.create({
-        rideId,
-        driverId,
-        amount: totalAmount,
-        adminFee,
-        driverAmount,
-        success_url: session.success_url,
-        status: 'pending',
-      });
+    } 
+    /**
+     * CASE 2: Driver Stripe Account DOES NOT EXIST
+     * 100% money goes to Admin
+     */
+    else {
+      adminFee = totalAmount;
+      driverAmount = 0;
 
-      res.json({
-        success: true,
-        url: session.url,
-        sessionId: session.id,
-        breakdown: {
-          total: totalAmount / 100,
-          adminFee: adminFee / 100,
-          driverAmount: driverAmount / 100,
+      session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: { name: title || 'Ride Payment' },
+              unit_amount: totalAmount,
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: `${clientUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${clientUrl}/payment/cancel`,
+        payment_intent_data: {
+          metadata: {
+            rideId,
+            driverId: driverId || null,
+            adminFee,
+            driverAmount,
+          },
         },
       });
-    } catch (error) {
-      console.error('Error creating checkout session:', error);
-      res.status(500).json({ success: false, error: error.message });
     }
-  };
+
+    // Save payment info to database
+    await Payment.create({
+      rideId,
+      driverId: driverId || null,
+      amount: totalAmount,
+      adminFee,
+      driverAmount,
+      stripeSessionId: session.id,
+      status: 'pending',
+    });
+
+    res.json({
+      success: true,
+      url: session.url,
+      sessionId: session.id,
+      breakdown: {
+        total: totalAmount / 100,
+        adminFee: adminFee / 100,
+        driverAmount: driverAmount / 100,
+      },
+    });
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+}
+
 
   // Get Payment Details
    async getPaymentDetails (req, res) {

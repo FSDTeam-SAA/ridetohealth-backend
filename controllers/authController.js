@@ -209,13 +209,17 @@ class AuthController {
   }
 
   async login(req, res) {
+
     try {
+
       const { error } = validateLogin(req.body);
+
       if (error) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           message: error.details[0].message
         });
+        // throw new Error(error.details[0].message);
       }
 
       const { emailOrPhone, password } = req.body;
@@ -226,24 +230,28 @@ class AuthController {
       });
 
       if (!user.isEmailVerified && !user.isPhoneVerified) {
-        return res.status(401).json({
+        console.log("User not verified:", user._id);
+        res.status(401).json({
           success: false,
           message: 'User is not verified'
         });
+        // throw new Error('User is not verified');
       }
 
       if (!user || !(await user.comparePassword(password))) {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           message: 'Invalid credentials'
         });
+        // throw new Error('Invalid credentials');
       }
 
       if (!user.isActive) {
-        return res.status(401).json({
+        res.status(401).json({
           success: false,
           message: 'Account is suspended'
         });
+        // throw new Error('Account is suspended');
       }
 
       const payload = { _id: user._id, role: user.role };
@@ -279,10 +287,10 @@ class AuthController {
         }
       });
     } catch (error) {
-      logger.error('Login error:', error);
+      logger.error('Login error :', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }

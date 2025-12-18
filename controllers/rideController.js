@@ -25,8 +25,6 @@ async requestRide(req, res) {
     const customerId = req.user.userId.toString();
     const customer = await User.findById(customerId);
 
-    console.log('Customer ID (string):', customerId); // Clean output
-
     if (!driverId) {
       return res.status(400).json({
         success: false,
@@ -61,13 +59,6 @@ async requestRide(req, res) {
     const driverUserId = driver.userId._id.toString();
     const driverDocId = driver._id.toString();
 
-    console.log('═══════════════════════════════════════');
-    console.log('🚕 RIDE REQUEST');
-    console.log('Customer ID:', customerId);
-    console.log('Driver User ID:', driverUserId);
-    console.log('Driver Doc ID:', driverDocId);
-    console.log('═══════════════════════════════════════');
-
     if (driver.status !== 'approved' || !driver.isOnline || !driver.isAvailable) {
       return res.status(400).json({
         success: false,
@@ -94,12 +85,8 @@ async requestRide(req, res) {
     const io = req.app.get('io');
     const targetRoom = `driver:${driverUserId}`;
     
-    console.log('📤 Emitting to room:', targetRoom);
-    console.log('Ride ID:', rideIdString);
-    
     // Check sockets in room
     const socketsInRoom = await io.in(targetRoom).allSockets();
-    console.log('👥 Sockets in room:', socketsInRoom.size);
     
     if (socketsInRoom.size === 0) {
       console.warn('⚠️ WARNING: No sockets in room! Driver not connected.');
@@ -158,18 +145,13 @@ async requestRide(req, res) {
   async acceptRide(req, res) {
     try {
       const { rideId } = req.params;
-      const driverUserId = req.user.userId; // from token
-
-
-      console.log("Ride ID:", rideId, "Driver User ID:", driverUserId);
+      const driverUserId = req.user.userId; 
 
       // 1️⃣ Find driver by userId
       const driver = await Driver.findOne({ userId: driverUserId })
-        .populate("userId")  // ← important
+        .populate("userId") 
         .populate("vehicleId");
 
-
-      console.log("Driver found:", driver._id);
 
       if (!driver) {
         return res.status(404).json({
@@ -194,8 +176,6 @@ async requestRide(req, res) {
           message: "Ride not found"
         });
       }
-
-      console.log("Driver accepting ride:", driver._id.toString(), ride.driverId?.toString());
 
       // 3️⃣ Ensure correct driver was assigned
       if (ride.driverId.toString() !== driverUserId.toString()) {
@@ -230,7 +210,6 @@ async requestRide(req, res) {
       const io = req.app.get("io");
       const customerRoom = `user_${ride.customerId.toString()}`;
 
-      console.log("Emitting to customer room:", customerRoom);
 
       io.to(customerRoom).emit("ride_accepted", {
         rideId: ride._id,
@@ -243,6 +222,16 @@ async requestRide(req, res) {
           currentLocation: driver.currentLocation
         }
       });
+
+       const notification = await sendNotification({
+        senderId: driverUserId,
+        receiverId: ride.customerId,
+        title: 'Accepted Ride Request',
+        message: `${driver.userId.fullName} has accepted your ride request`,
+        type: 'ride_accepted',
+        data: { rideId: ride._id } // ✅ String
+      });
+
 
       // 7️⃣ Send Push Notification
       // await sendNotification(ride.customerId, {
@@ -265,14 +254,15 @@ async requestRide(req, res) {
             driverName: driver.userId.fullName,
             driverPhone: driver.userId.phoneNumber
           }
-        }
+        },
+        notification
       });
 
     } catch (error) {
       logger.error("Accept ride error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error"
+        message: error.message
       });
     }
   }
@@ -319,7 +309,6 @@ async requestRide(req, res) {
     const { status, location } = req.body;
 
     const ride = await Ride.findById(rideId);
-    console.log("Updating ride status:", ride, status, location);
 
     if (!ride) {
       return res.status(404).json({
@@ -354,14 +343,12 @@ async requestRide(req, res) {
         location.latitude,
       ];
     }
-    console.log("check", driver);
+
     if (status === "completed") {
       ride.completedAt = new Date();
 
       const paymentMethod = ride.paymentMethod; 
       const totalPrice = ride.totalFare ?? 0;
-      console.log("Payment Method:", paymentMethod, "Total Price:", totalPrice);
-
       ride.paymentStatus = "successfull";
 
       if (paymentMethod === "cash" || paymentMethod === "stripe" || paymentMethod === "card") {
@@ -425,6 +412,7 @@ async requestRide(req, res) {
     try {
       const { rideId } = req.params;
       const { reason } = req.body;
+      const driverUserId = req.user.userId;
 
       const ride = await Ride.findById(rideId);
       if (!ride) {
@@ -479,27 +467,36 @@ async requestRide(req, res) {
         reason
       });
 
-      // Notify Driver (if assigned)
+      let customerId = ride.customerId;
+      const driver = await Driver.findOne({ userId: driverUserId }).populate("userId");
       if (ride.driverId) {
-        const driver = await Driver.findById(ride.driverId).populate("userId");
 
-        io.to(`driver_${driver.userId._id}`).emit("ride_cancelled", {
+        io.to(`driver_${driverUserId}`).emit("ride_cancelled", {
           rideId: ride._id,
           cancelledBy: ride.cancelledBy,
           reason
         });
       }
+      const notification = await sendNotification({
+        senderId: driverUserId,
+        receiverId: customerId,
+        title: 'Cancelled Ride Request',
+        message: `${driver.userId.fullName} has cancelled your ride request`,
+        type: 'ride_cancelled',
+        data: { rideId: ride._id } // ✅ String
+      });
 
       return res.json({
         success: true,
-        message: "Ride cancelled successfully"
+        message: "Ride cancelled successfully",
+        notification
       });
 
     } catch (error) {
       logger.error("Cancel ride error:", error);
       return res.status(500).json({
         success: false,
-        message: "Internal server error"
+        message: error.message
       });
     }
   }
