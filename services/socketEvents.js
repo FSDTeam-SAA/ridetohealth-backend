@@ -52,75 +52,92 @@ const handleJoinDriver = (socket, driverId) => {
   });
 };
 
-// const handleJoinChat = (socket, data) => {
-//   const { senderId, receiverId } = data;
-
-//   if (!senderId || !receiverId) {
-//     logger.error("❌ Missing senderId or receiverId in join-chat");
-//     return;
-//   }
-
-//   const chatRoomId = [senderId, receiverId].sort().join('-');
-
-//   socket.join(`chat:${chatRoomId}`);
-//   logger.info(`💬 User ${senderId} joined chat room: chat:${chatRoomId}`);
-
-//   socket.emit("joined-chat", { chatRoomId: `chat:${chatRoomId}` });
-// };
-
-// const handleSendMessage = (io, socket, data) => {
-//   try {
-//     const { receiverId, senderId, message, rideId } = data;
-
-//     if (!receiverId || !senderId || !message || !rideId) {
-//       socket.emit("error", { message: "Missing required fields" });
-//       return;
-//     }
-
-//     const chatRoomId = [senderId, receiverId].sort().join('-');
-
-//     io.to(`chat:${chatRoomId}`).emit('receive-message', message);
-
-//     logger.info(`✅ Message sent to chat room: chat:${chatRoomId}`);
-//   } catch (err) {
-//     socket.emit("error", { message: "Failed to send message" });
-//   }
-// };
 const handleJoinChat = async (socket, data) => {
   const { rideId } = data;
-  const userId = socket.userId || socket.driverId;
+  
+  // ✅ FIX: Extract userId correctly for both customer and driver
+  let userId = socket.userId || socket.driverId;
+  
+  // ✅ FIX: Handle case where driverId might be wrapped in an object
+  if (typeof userId === 'object' && userId !== null) {
+    userId = userId.driverId || userId.userId;
+  }
+  
+  // Convert to string for consistent comparison
+  userId = userId?.toString();
 
-  if (!rideId || !userId) return;
+  console.log('🔵 Join chat attempt:', { rideId, userId, rawUserId: socket.userId, rawDriverId: socket.driverId });
+
+  if (!rideId || !userId) {
+    console.log('❌ Missing rideId or userId');
+    return;
+  }
 
   const ride = await Ride.findById(rideId);
-  if (!ride) return;
+  if (!ride) {
+    console.log('❌ Ride not found:', rideId);
+    return;
+  }
 
   if (
     ride.customerId.toString() !== userId &&
     ride.driverId.toString() !== userId
-  ) return;
+  ) {
+    console.log('❌ User not participant in ride', {
+      customerId: ride.customerId.toString(),
+      driverId: ride.driverId.toString(),
+      userId
+    });
+    return;
+  }
 
   socket.join(`ride:${rideId}`);
+  console.log(`✅ Joined ride room: ride:${rideId} by user: ${userId}`);
   socket.emit("joined-chat", { rideId });
 };
 
 const handleSendMessage = async (io, socket, data) => {
   try {
-    const { rideId, receiverId, message } = data;
-    const senderId = socket.userId || socket.driverId;
+    const { rideId, message } = data;
+    
+    // ✅ FIX: Extract senderId correctly
+    let senderId = socket.userId || socket.driverId;
+    
+    // ✅ FIX: Handle case where ID might be wrapped in an object
+    if (typeof senderId === 'object' && senderId !== null) {
+      senderId = senderId.driverId || senderId.userId;
+    }
+    
+    // Convert to string for consistent comparison
+    senderId = senderId?.toString();
 
-    if (!rideId || !senderId || !receiverId || !message) return;
+    console.log('📨 Send message:', { 
+      rideId, 
+      senderId, 
+      messagePreview: message?.substring(0, 30),
+      rawUserId: socket.userId,
+      rawDriverId: socket.driverId
+    });
+
+    if (!rideId || !senderId || !message) {
+      console.log('❌ Missing required fields');
+      return;
+    }
 
     const ride = await Ride.findById(rideId);
-    if (!ride) return;
+    if (!ride) {
+      console.log('❌ Ride not found');
+      return;
+    }
 
-    // validate sender & receiver
-    const participants = [
-      ride.customerId.toString(),
-      ride.driverId.toString(),
-    ];
+    const customerId = ride.customerId.toString();
+    const driverId = ride.driverId.toString();
+    const receiverId = senderId === customerId ? driverId : customerId;
 
-    if (!participants.includes(senderId) || !participants.includes(receiverId)) {
+    console.log('👥 Participants:', { customerId, driverId, senderId, receiverId });
+
+    if (senderId !== customerId && senderId !== driverId) {
+      console.log('❌ Unauthorized sender');
       socket.emit("error", { message: "Unauthorized message" });
       return;
     }
@@ -131,20 +148,30 @@ const handleSendMessage = async (io, socket, data) => {
       recipient: receiverId,
       message,
     });
+    
+    console.log('📤 Emitting to room:', { 
+      rideRoom: `ride:${rideId}`,
+      socketRooms: Array.from(socket.rooms)
+    });
 
-    io.to(`ride:${rideId}`).emit("receive-message", {
+    // ✅ ONLY emit to ride room (both participants are in this room)
+    const messageData = {
       rideId,
       senderId,
       receiverId,
       message,
       timestamp: newMessage.createdAt,
-    });
+    };
+
+    io.to(`ride:${rideId}`).emit("receive-message", messageData);
+
+    console.log('✅ Message sent successfully');
 
   } catch (err) {
+    console.error('❌ Send message error:', err);
     socket.emit("error", { message: "Failed to send message" });
   }
 };
-
 const handleLeaveChat = (socket, data) => {
   try {
     const { senderId, receiverId } = data;
