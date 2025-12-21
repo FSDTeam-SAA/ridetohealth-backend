@@ -87,181 +87,152 @@ class SocketController {
   /**
    * Ride Message Handler
    */
+  // async handleSendMessage(req, res) {
+  //   try {
+  //     console.log("HTTP Ride Message Handler Invoked");
+
+  //     const senderId = req.user.userId;      // Comes from auth middleware
+  //     const { rideId, message, receiverId } = req.body;
+
+  //     console.log("Sender ID:", senderId);
+  //     console.log("Ride ID:", rideId);
+  //     console.log("Receiver ID:", receiverId);
+  //     console.log("Message:", message);
+  //     // Validate fields
+  //     if (!senderId || !message || !receiverId || !rideId) {
+  //       return res.status(400).json({ success: false, error: "Missing required fields" });
+  //     }
+
+  //     // Validate message content
+  //     if (typeof message !== "string" || message.trim().length === 0) {
+  //       return res.status(400).json({ success: false, error: "Invalid message" });
+  //     }
+
+  //     if (message.length > 1000) {
+  //       return res.status(400).json({ success: false, error: "Message too long (max 1000 characters)" });
+  //     }
+
+  //     // Fetch ride
+  //     const ride = await Ride.findById(rideId);
+  //     if (!ride) {
+  //       return res.status(404).json({ success: false, error: "Ride not found" });
+  //     }
+
+  //     // Check if sender is customer or driver
+  //     const isCustomer = ride.customerId?.toString() === senderId;
+  //     const isDriver = ride.driverId?.toString() === receiverId;
+
+  //     if (!isCustomer && !isDriver) {
+  //       return res.status(403).json({ success: false, error: "You are not a participant in this ride" });
+  //     }
+
+
+  //     // Save message
+  //     const newMessage = await Message.create({
+  //       rideId,
+  //       sender: senderId,
+  //       recipient: receiverId,
+  //       message: message,
+  //     });
+
+  //     return res.json({
+  //       success: true,
+  //       message: "Message sent successfully",
+  //       data: newMessage,
+  //     });
+
+  //   } catch (error) {
+  //     logger.error("Ride message error:", error);
+  //     return res.status(500).json({ success: false, error: "Internal server error" });
+  //   }
+  // }
+
   async handleSendMessage(req, res) {
-    try {
-      console.log("HTTP Ride Message Handler Invoked");
+  try {
+    console.log("HTTP Ride Message Handler Invoked");
+    
+    const senderId = req.user.userId.toString();      // Comes from auth middleware
+    const { rideId, message, receiverId } = req.body;
+  
+    // Validate fields
+    if (!senderId || !message || !receiverId || !rideId) {
+      return res.status(400).json({ success: false, error: "Missing required fields" });
+    }
+    
+    // Validate message content
+    if (typeof message !== "string" || message.trim().length === 0) {
+      return res.status(400).json({ success: false, error: "Invalid message" });
+    }
+    
+    if (message.length > 1000) {
+      return res.status(400).json({ success: false, error: "Message too long (max 1000 characters)" });
+    }
+    
+    // Fetch ride
+    const ride = await Ride.findById(rideId);
+    if (!ride) {
+      return res.status(404).json({ success: false, error: "Ride not found" });
+    }
+    
+    // Check if sender is customer or driver
+    const isCustomer = ride.customerId?.toString() === senderId;
+    const isDriver = ride.driverId?.toString() === senderId;
+    console.log(ride.customerId?.toString(), ride.driverId?.toString(), senderId);
+    
+    if (!isCustomer && !isDriver) {
+      return res.status(403).json({ success: false, error: "You are not a participant in this ride" });
+    }
+    
+    // Save message
+    const newMessage = await Message.create({
+      rideId,
+      sender: senderId,
+      recipient: receiverId,
+      message: message,
+    });
+    
+    // Emit to socket room
 
-      const senderId = req.user.userId;      // Comes from auth middleware
-      const { rideId, message, receiverId } = req.body;
-
-      console.log("Sender ID:", senderId);
-      console.log("Ride ID:", rideId);
-      console.log("Receiver ID:", receiverId);
-      console.log("Message:", message);
-      // Validate fields
-      if (!senderId || !message || !receiverId || !rideId) {
-        return res.status(400).json({ success: false, error: "Missing required fields" });
-      }
-
-      // Validate message content
-      if (typeof message !== "string" || message.trim().length === 0) {
-        return res.status(400).json({ success: false, error: "Invalid message" });
-      }
-
-      if (message.length > 1000) {
-        return res.status(400).json({ success: false, error: "Message too long (max 1000 characters)" });
-      }
-
-      // Fetch ride
-      const ride = await Ride.findById(rideId);
-      if (!ride) {
-        return res.status(404).json({ success: false, error: "Ride not found" });
-      }
-
-      // Check if sender is customer or driver
-      const isCustomer = ride.customerId?.toString() === senderId;
-      const isDriver = ride.driverId?.toString() === receiverId;
-
-      if (!isCustomer && !isDriver) {
-        return res.status(403).json({ success: false, error: "You are not a participant in this ride" });
-      }
-
-
-      // Save message
-      const newMessage = await Message.create({
+     const io = req.app.get('io');
+      io.to(`ride:${rideId}`).emit('receive-message', {
         rideId,
-        sender: senderId,
-        recipient: receiverId,
-        message: message,
+        senderId,
+        receiverId,
+        message,
+        timestamp: newMessage.createdAt
       });
+    
+    return res.json({
+      success: true,
+      message: "Message sent successfully",
+      data: newMessage,
+    });
+    
+  } catch (error) {
+    logger.error("Ride message error:", error);
+    return res.status(500).json({ success: false, error: "Internal server error" });
+  }
+}
+
+  //get all messages for a ride
+  async handleGetMessages(req, res) {
+    try {
+      const userId = req.user.userId;      
+      const { rideId } = req.params;
+
+      if (!rideId) {
+        return res.status(400).json({ success: false, error: "Missing rideId" });
+      }
+
+      const messages = await Message.find({ rideId });
 
       return res.json({
         success: true,
-        message: "Message sent successfully",
-        data: newMessage,
+        data: messages,
       });
-
     } catch (error) {
-      logger.error("Ride message error:", error);
+      logger.error("Get messages error:", error);
       return res.status(500).json({ success: false, error: "Internal server error" });
-    }
-  }
-
-  /**
-   * Typing Start Handler
-   */
-  async handleTypingStart(socket, io, data) {
-    try {
-      const { rideId, recipientId } = data;
-      
-      if (!rideId || !recipientId) return;
-
-      // Verify ride participation
-      const ride = await Ride.findById(rideId);
-      if (!ride) return;
-
-      const isParticipant = ride.customerId?.toString() === socket.userId ||
-                           ride.driverId?.toString() === socket.userId;
-
-      if (!isParticipant) return;
-
-      io.to(`user_${recipientId}`).emit('user_typing', {
-        rideId,
-        userId: socket.userId
-      });
-    } catch (error) {
-      logger.error('Typing start error:', error);
-    }
-  }
-
-  /**
-   * Typing Stop Handler
-   */
-  async handleTypingStop(socket, io, data) {
-    try {
-      const { rideId, recipientId } = data;
-      
-      if (!rideId || !recipientId) return;
-
-      io.to(`user_${recipientId}`).emit('user_stopped_typing', {
-        rideId,
-        userId: socket.userId
-      });
-    } catch (error) {
-      logger.error('Typing stop error:', error);
-    }
-  }
-
-  /**
-   * Join Ride Room Handler
-   */
-  async handleJoinRide(socket, io, data, callback) {
-    try {
-      const { rideId } = data;
-      
-      if (!rideId) {
-        if (callback) callback({ success: false, error: 'Missing rideId' });
-        return;
-      }
-
-      // Verify user is part of the ride
-      const ride = await Ride.findById(rideId);
-      if (!ride) {
-        if (callback) callback({ success: false, error: 'Ride not found' });
-        return;
-      }
-
-      const isParticipant = ride.customerId?.toString() === socket.userId ||
-                           ride.driverId?.toString() === socket.userId ||
-                           socket.userRole === 'admin';
-
-      if (!isParticipant) {
-        if (callback) callback({ success: false, error: 'Not authorized' });
-        return;
-      }
-
-      socket.join(`ride_${rideId}`);
-      logger.info(`User ${socket.userId} joined ride ${rideId}`);
-
-      // Notify other participants
-      socket.to(`ride_${rideId}`).emit('user_joined_ride', {
-        rideId,
-        userId: socket.userId,
-        userRole: socket.userRole
-      });
-      
-      if (callback) callback({ success: true, rideId });
-    } catch (error) {
-      logger.error('Join ride error:', error);
-      if (callback) callback({ success: false, error: 'Internal server error' });
-    }
-  }
-
-  /**
-   * Leave Ride Room Handler
-   */
-  async handleLeaveRide(socket, io, data, callback) {
-    try {
-      const { rideId } = data;
-      
-      if (!rideId) {
-        if (callback) callback({ success: false, error: 'Missing rideId' });
-        return;
-      }
-
-      socket.leave(`ride_${rideId}`);
-      logger.info(`User ${socket.userId} left ride ${rideId}`);
-
-      // Notify other participants
-      socket.to(`ride_${rideId}`).emit('user_left_ride', {
-        rideId,
-        userId: socket.userId
-      });
-      
-      if (callback) callback({ success: true });
-    } catch (error) {
-      logger.error('Leave ride error:', error);
-      if (callback) callback({ success: false, error: 'Internal server error' });
     }
   }
 
@@ -427,55 +398,6 @@ class SocketController {
     }
   }
 
-  /**
-   * Request Driver Location Handler (for passengers)
-   */
-  async handleRequestDriverLocation(socket, io, data, callback) {
-    try {
-      const { rideId } = data;
-
-      if (!rideId) {
-        if (callback) callback({ success: false, error: 'Missing rideId' });
-        return;
-      }
-
-      // Verify user is the passenger of this ride
-      const ride = await Ride.findOne({ 
-        _id: rideId, 
-        customerId: socket.userId,
-        status: { $in: ['accepted', 'picked_up', 'in_progress'] }
-      });
-
-      if (!ride || !ride.driverId) {
-        if (callback) callback({ success: false, error: 'Ride not found or no driver assigned' });
-        return;
-      }
-
-      // Get latest driver location
-      const driverLocation = await DriverLocation.findOne({ driverId: ride.driverId });
-
-      if (!driverLocation) {
-        if (callback) callback({ success: false, error: 'Driver location not available' });
-        return;
-      }
-
-      const locationData = {
-        driverId: ride.driverId.toString(),
-        location: {
-          latitude: driverLocation.location.coordinates[1],
-          longitude: driverLocation.location.coordinates[0]
-        },
-        heading: driverLocation.heading,
-        speed: driverLocation.speed,
-        timestamp: driverLocation.timestamp
-      };
-
-      if (callback) callback({ success: true, ...locationData });
-    } catch (error) {
-      logger.error('Request driver location error:', error);
-      if (callback) callback({ success: false, error: 'Internal server error' });
-    }
-  }
 }
 
 module.exports = new SocketController();
