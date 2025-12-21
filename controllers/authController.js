@@ -231,7 +231,7 @@ class AuthController {
       const { error } = validateLogin(req.body);
 
       if (error) {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           message: error.details[0].message
         });
@@ -247,7 +247,7 @@ class AuthController {
 
       if (!user.isEmailVerified && !user.isPhoneVerified) {
         console.log("User not verified:", user._id);
-        res.status(401).json({
+        return res.status(401).json({
           success: false,
           message: 'User is not verified'
         });
@@ -255,7 +255,7 @@ class AuthController {
       }
 
       if (!user || !(await user.comparePassword(password))) {
-        res.status(401).json({
+        return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
         });
@@ -263,7 +263,7 @@ class AuthController {
       }
 
       if (!user.isActive) {
-        res.status(401).json({
+        return res.status(401).json({
           success: false,
           message: 'Account is suspended'
         });
