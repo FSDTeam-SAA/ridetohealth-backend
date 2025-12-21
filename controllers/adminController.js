@@ -368,12 +368,14 @@ class AdminController {
     try {
 
       const { vehicleId, driverId } = req.body;
+      const adminId = req.user.userId.toString();
 
       console.log("vehicleId", vehicleId);
       console.log("driverId", driverId);
 
       const vehicle = await Vehicle.findById(vehicleId);
       const driver = await Driver.findById(driverId);
+      const driverUserId = driver.userId.toString();
 
       if (!vehicle || !driver) {
         return res.status(404).json({ success: false, message: 'Vehicle or Driver not found' });
@@ -383,9 +385,27 @@ class AdminController {
       driver.vehicleId = vehicleId;
       vehicle.assignedDrivers = true;
 
+
       await vehicle.save();
       await driver.save();
+      // Emit to driver
+      const io = req.app.get('io');
+      const targetRoom = `driver:${driverUserId}`;
+      
+      // Check sockets in room
+      const socketsInRoom = await io.in(targetRoom).allSockets();
+      
+      if (socketsInRoom.size === 0) {
+        console.warn('⚠️ WARNING: No sockets in room! Driver not connected.');
+      }
 
+      // ✅ Send only string IDs in socket event
+      io.to(targetRoom).emit('assigned_service', {
+        senderId: adminId,          
+        receiverId: driverUserId,
+        assignedVechile: vehicle     
+      });
+      
       res.json({ success: true, message: 'Driver assigned to vehicle successfully', data: { vehicle, driver } });
 
     } catch (error) {
