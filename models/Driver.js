@@ -6,6 +6,11 @@ const driverSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  serviceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Service',
+    required: true,
+  },
   vehicleId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Vehicle',

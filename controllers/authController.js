@@ -24,7 +24,7 @@ class AuthController {
         role = "customer",
         licenseNumber,
         nidNumber,
-        serviceTypes,
+        serviceId,
         insuranceInformation
       } = req.body;
 
@@ -57,10 +57,10 @@ class AuthController {
 
       if (role === "driver") {
         // Validate driver fields
-        if (!licenseNumber || !nidNumber || !serviceTypes) {
+        if (!licenseNumber || !nidNumber || !serviceId) {
           return res.status(400).json({
             success: false,
-            message: "Driver registration requires license number, NID number, and service types."
+            message: "Driver registration requires license number, NID number, and service ID."
           });
         }
 
@@ -137,7 +137,7 @@ class AuthController {
           nidNumber,
           nidImage,
           selfieImage,
-          serviceTypes,
+          serviceId,
           insuranceInformation
         })
       });
@@ -164,7 +164,7 @@ class AuthController {
       // 6️⃣ Create driver profile if role is driver
       if (role === "driver") {
         const adminId = process.env.ADMIN_ID;
-        const driver = await Driver.create({ userId: user._id });
+        const driver = await Driver.create({ userId: user._id, serviceId });
        
         // Send notification
         notification = await sendNotification({
