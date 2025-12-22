@@ -30,18 +30,48 @@ const handleJoinUser = (socket, userId) => {
 };
 
 // ✅ CORRECT: Driver joins with "driver:" prefix
-const handleJoinDriver = (socket, driverId) => {
+// const handleJoinDriver = (socket, driverId) => {
+//   if (!driverId) {
+//     logger.error('❌ join-driver event without driverId');
+//     return;
+//   }
+
+//   const driverRoom = `driver:${driverId.toString()}`;
+//   socket.join(driverRoom);
+//   socket.driverId = driverId;
+  
+//   const rooms = Array.from(socket.rooms);
+//   logger.info(`🚗 Driver ${driverId} joined room: ${driverRoom}`);
+//   logger.info(`📋 All rooms for this socket: ${JSON.stringify(rooms)}`);
+  
+//   socket.emit('driver-joined', {
+//     success: true,
+//     room: driverRoom,
+//     message: 'Successfully joined driver room',
+//     allRooms: rooms
+//   });
+// };
+
+const handleJoinDriver = (socket, driverIdOrData) => {
+  // Extract ID if object is passed
+  let driverId = driverIdOrData;
+  if (typeof driverIdOrData === 'object' && driverIdOrData !== null) {
+    driverId = driverIdOrData.driverId || driverIdOrData.id || driverIdOrData._id;
+  }
+  
   if (!driverId) {
     logger.error('❌ join-driver event without driverId');
     return;
   }
 
-  const driverRoom = `driver:${driverId}`;
+  const driverIdStr = String(driverId);
+  const driverRoom = `driver:${driverIdStr}`;
+  
   socket.join(driverRoom);
-  socket.driverId = driverId;
+  socket.driverId = driverIdStr;
   
   const rooms = Array.from(socket.rooms);
-  logger.info(`🚗 Driver ${driverId} joined room: ${driverRoom}`);
+  logger.info(`🚗 Driver ${driverIdStr} joined room: ${driverRoom}`);
   logger.info(`📋 All rooms for this socket: ${JSON.stringify(rooms)}`);
   
   socket.emit('driver-joined', {
