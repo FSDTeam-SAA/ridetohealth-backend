@@ -96,7 +96,7 @@ class AdminController {
 
       // Fetch drivers with pagination and populate user info
       const drivers = await Driver.find(query)
-        .populate('userId', 'fullName email phoneNumber profileImage')
+        .populate('userId', 'fullName email phoneNumber profileImage serviceTypes')
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 });
