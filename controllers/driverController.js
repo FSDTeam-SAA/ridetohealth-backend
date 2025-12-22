@@ -517,6 +517,7 @@ async updateLocation(req, res) {
       }
 
       const driver = await Driver.findOne({ userId });
+      console.log(driver);
 
       if (!driver) {
         return res.status(404).json({
@@ -526,6 +527,7 @@ async updateLocation(req, res) {
       }
 
       const vehicle = await Vehicle.findOne({ driverId: driver._id });
+      console.log(vehicle);
       const service = await Service.findById(vehicle.serviceId);
 
       if (!vehicle) {

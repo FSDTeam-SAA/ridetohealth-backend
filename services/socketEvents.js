@@ -3,12 +3,11 @@
 // ============================================
 
 const logger = require('../utils/logger.js');
+const Driver = require('../models/Driver.js');
+const { calculateDistance, isValidCoordinate } = require('./fareService.js');
+const Ride = require('../models/Ride.js');
+const Message = require('../models/Message.js');
 
-// const handleJoinUser = (socket, userId) => {
-//   socket.join(`user:${userId}`);
-//   socket.emit("connected");
-//   logger.info(`👤 User ${userId} joined personal room: user:${userId}`);
-// };
 
 const handleJoinUser = (socket, userId) => {
   if (!userId) {
@@ -82,63 +81,127 @@ const handleJoinDriver = (socket, driverIdOrData) => {
     allRooms: rooms
   });
 };
-const handleJoinChat = (socket, data) => {
-  const { senderId, receiverId } = data;
 
-  if (!senderId || !receiverId) {
-    logger.error("❌ Missing senderId or receiverId in join-chat");
+const handleJoinChat = async (socket, data) => {
+  const { rideId } = data;
+  
+  // ✅ FIX: Extract userId correctly for both customer and driver
+  let userId = socket.userId || socket.driverId;
+  
+  // ✅ FIX: Handle case where driverId might be wrapped in an object
+  if (typeof userId === 'object' && userId !== null) {
+    userId = userId.driverId || userId.userId;
+  }
+  
+  // Convert to string for consistent comparison
+  userId = userId?.toString();
+
+  console.log('🔵 Join chat attempt:', { rideId, userId, rawUserId: socket.userId, rawDriverId: socket.driverId });
+
+  if (!rideId || !userId) {
+    console.log('❌ Missing rideId or userId');
     return;
   }
 
-  const chatRoomId = [senderId, receiverId].sort().join('-');
+  const ride = await Ride.findById(rideId);
+  if (!ride) {
+    console.log('❌ Ride not found:', rideId);
+    return;
+  }
 
-  socket.join(`chat:${chatRoomId}`);
-  logger.info(`💬 User ${senderId} joined chat room: chat:${chatRoomId}`);
+  if (
+    ride.customerId.toString() !== userId &&
+    ride.driverId.toString() !== userId
+  ) {
+    console.log('❌ User not participant in ride', {
+      customerId: ride.customerId.toString(),
+      driverId: ride.driverId.toString(),
+      userId
+    });
+    return;
+  }
 
-  socket.emit("joined-chat", { chatRoomId: `chat:${chatRoomId}` });
+  socket.join(`ride:${rideId}`);
+  console.log(`✅ Joined ride room: ride:${rideId} by user: ${userId}`);
+  socket.emit("joined-chat", { rideId });
 };
 
-const handleSendMessage = (io, socket, data) => {
+const handleSendMessage = async (io, socket, data) => {
   try {
-    const { receiverId, senderId, message } = data;
+    const { rideId, message } = data;
+    
+    // ✅ FIX: Extract senderId correctly
+    let senderId = socket.userId || socket.driverId;
+    
+    // ✅ FIX: Handle case where ID might be wrapped in an object
+    if (typeof senderId === 'object' && senderId !== null) {
+      senderId = senderId.driverId || senderId.userId;
+    }
+    
+    // Convert to string for consistent comparison
+    senderId = senderId?.toString();
 
-    if (!receiverId || !senderId || !message) {
-      socket.emit("error", { message: "Missing required fields" });
+    console.log('📨 Send message:', { 
+      rideId, 
+      senderId, 
+      messagePreview: message?.substring(0, 30),
+      rawUserId: socket.userId,
+      rawDriverId: socket.driverId
+    });
+
+    if (!rideId || !senderId || !message) {
+      console.log('❌ Missing required fields');
       return;
     }
 
-    const chatRoomId = [senderId, receiverId].sort().join('-');
+    const ride = await Ride.findById(rideId);
+    if (!ride) {
+      console.log('❌ Ride not found');
+      return;
+    }
 
-    io.to(`chat:${chatRoomId}`).emit('receive-message', message);
+    const customerId = ride.customerId.toString();
+    const driverId = ride.driverId.toString();
+    const receiverId = senderId === customerId ? driverId : customerId;
 
-    logger.info(`✅ Message sent to chat room: chat:${chatRoomId}`);
+    console.log('👥 Participants:', { customerId, driverId, senderId, receiverId });
+
+    if (senderId !== customerId && senderId !== driverId) {
+      console.log('❌ Unauthorized sender');
+      socket.emit("error", { message: "Unauthorized message" });
+      return;
+    }
+
+    const newMessage = await Message.create({
+      rideId,
+      sender: senderId,
+      recipient: receiverId,
+      message,
+    });
+    
+    console.log('📤 Emitting to room:', { 
+      rideRoom: `ride:${rideId}`,
+      socketRooms: Array.from(socket.rooms)
+    });
+
+    // ✅ ONLY emit to ride room (both participants are in this room)
+    const messageData = {
+      rideId,
+      senderId,
+      receiverId,
+      message,
+      timestamp: newMessage.createdAt,
+    };
+
+    io.to(`ride:${rideId}`).emit("receive-message", messageData);
+
+    console.log('✅ Message sent successfully');
+
   } catch (err) {
+    console.error('❌ Send message error:', err);
     socket.emit("error", { message: "Failed to send message" });
   }
 };
-
-const handleTyping = (socket, data) => {
-  try {
-    const { senderId, receiverId } = data;
-    const chatRoomId = [senderId, receiverId].sort().join('-');
-
-    socket.to(`chat:${chatRoomId}`).emit('user-typing', { userId: senderId });
-  } catch (err) {
-    console.error("⚠️ Error handling typing:", err);
-  }
-};
-
-const handleStopTyping = (socket, data) => {
-  try {
-    const { senderId, receiverId } = data;
-    const chatRoomId = [senderId, receiverId].sort().join('-');
-
-    socket.to(`chat:${chatRoomId}`).emit('user-stop-typing', { userId: senderId });
-  } catch (err) {
-    console.error("⚠️ Error handling stop-typing:", err);
-  }
-};
-
 const handleLeaveChat = (socket, data) => {
   try {
     const { senderId, receiverId } = data;
@@ -153,50 +216,14 @@ const handleLeaveChat = (socket, data) => {
 };
 
 /**
- * Handle driver joining the tracking system
- * Driver joins their own room to broadcast location updates
- */
-// const handleJoinDriver = async (socket, driverData) => {
-//   try {
-//     // Extract actual driverId string
-//     const driverId = driverData?.driverId || driverData;
-
-//     // Create driver room
-//     socket.join(`driver:${driverId}`);
-//     socket.driverId = driverId;
-
-//     console.log('Driver ID in socket:', driverId);
-//     console.log('Driver room joined:', `driver:${driverId}`);
-
-//     logger.info(`🚗 Driver ${driverId} joined tracking room: driver:${driverId}`);
-
-//     // Fetch driver from DB
-//     const driver = await Driver.findOne({ userId: driverId });
-    
-//     if (driver?.currentLocation) {
-//       socket.emit('location-connected', {
-//         location: {
-//           latitude: driver.currentLocation.coordinates[1],
-//           longitude: driver.currentLocation.coordinates[0],
-//         },
-//       });
-//     }
-//   } catch (err) {
-//     logger.error('❌ Error in handleJoinDriver:', err);
-//     socket.emit('error', { message: 'Failed to join driver tracking' });
-//   }
-// };
-
-/**
- * Handle customer tracking a specific driver
- * Customer joins driver's room to receive location updates
+ * Customer starts tracking a driver
  */
 const handleTrackDriver = async (socket, data) => {
   try {
     const { customerId, driverId, customerLat, customerLng } = data;
     console.log('Tracking data received:', data);
 
-    // FIXED VALIDATION - check for undefined/null but allow 0
+    // Validate required fields
     if (
       !customerId ||
       !driverId ||
@@ -209,13 +236,20 @@ const handleTrackDriver = async (socket, data) => {
       return;
     }
 
-    // Validate coordinates are reasonable (not at null island)
-    if (customerLat === 0 && customerLng === 0) {
-      logger.warn(`⚠️ Customer ${customerId} sent invalid coordinates [0,0]`);
+    // Validate coordinates
+    if (!isValidCoordinate(customerLat, customerLng)) {
+      logger.warn(`⚠️ Customer ${customerId} sent invalid coordinates [${customerLat}, ${customerLng}]`);
       socket.emit('error', { message: 'Invalid customer location coordinates' });
       return;
     }
 
+    // Leave previous driver room if tracking another driver
+    if (socket.trackingDriverId && socket.trackingDriverId !== driverId) {
+      socket.leave(`driver:${socket.trackingDriverId}`);
+      logger.info(`👋 Customer ${customerId} left driver room: driver:${socket.trackingDriverId}`);
+    }
+
+    // Join new driver room
     socket.join(`driver:${driverId}`);
     socket.customerId = customerId;
     socket.customerLat = customerLat;
@@ -224,11 +258,21 @@ const handleTrackDriver = async (socket, data) => {
 
     logger.info(`👀 Customer ${customerId} tracking driver: ${driverId}`);
 
-    // Fetch driver's current stored location
+    // Fetch driver's current location
     const driver = await Driver.findOne({ userId: driverId }).select('currentLocation');
     console.log('Driver fetched for tracking:', driver);
 
-    if (driver?.currentLocation) {
+    if (!driver) {
+      socket.emit('error', { 
+        message: 'Driver not found',
+        code: 'DRIVER_NOT_FOUND'
+      });
+      socket.leave(`driver:${driverId}`);
+      socket.trackingDriverId = null;
+      return;
+    }
+
+    if (driver.currentLocation?.coordinates) {
       const driverLat = driver.currentLocation.coordinates[1];
       const driverLng = driver.currentLocation.coordinates[0];
 
@@ -244,7 +288,11 @@ const handleTrackDriver = async (socket, data) => {
         driverLocation: { lat: driverLat, lng: driverLng }
       });
     } else {
-      socket.emit('tracking-started', { driverId, distanceKm: null });
+      socket.emit('tracking-started', { 
+        driverId, 
+        distanceKm: null,
+        message: 'Driver location not yet available'
+      });
     }
 
   } catch (err) {
@@ -254,7 +302,24 @@ const handleTrackDriver = async (socket, data) => {
 };
 
 /**
- * Handle customer stopping driver tracking
+ * Customer updates their own location (for accurate distance calculation)
+ */
+const handleCustomerLocationUpdate = (socket, data) => {
+  const { latitude, longitude } = data;
+  
+  if (!isValidCoordinate(latitude, longitude)) {
+    socket.emit('error', { message: 'Invalid location data' });
+    return;
+  }
+  
+  socket.customerLat = latitude;
+  socket.customerLng = longitude;
+  
+  logger.info(`📍 Customer ${socket.customerId} location updated: [${latitude}, ${longitude}]`);
+};
+
+/**
+ * Customer stops tracking a driver
  */
 const handleStopTrackingDriver = (socket, data) => {
   try {
@@ -278,7 +343,7 @@ const handleStopTrackingDriver = (socket, data) => {
 
 /**
  * Handle real-time driver location updates
- * Broadcasts location to all tracking customers (FIXED)
+ * Broadcasts location to all tracking customers
  */
 const handleDriverLocationUpdate = async (io, socket, data) => {
   try {
@@ -290,10 +355,20 @@ const handleDriverLocationUpdate = async (io, socket, data) => {
       return;
     }
 
-    if (!latitude || !longitude) {
+    if (!isValidCoordinate(latitude, longitude)) {
       socket.emit('error', { message: 'Invalid location data' });
       return;
     }
+
+    // Rate limiting
+    const now = Date.now();
+    const lastUpdate = locationUpdateLimiter.get(driverId);
+    
+    if (lastUpdate && (now - lastUpdate) < RATE_LIMIT_MS) {
+      return; // Silently ignore too frequent updates
+    }
+    
+    locationUpdateLimiter.set(driverId, now);
 
     // Update database
     await Driver.findOneAndUpdate(
@@ -310,13 +385,14 @@ const handleDriverLocationUpdate = async (io, socket, data) => {
       { new: true }
     );
 
-    // FIXED: Get all sockets in the driver's room
+    // Get all sockets in the driver's room
     const driverRoom = `driver:${driverId}`;
     const socketsInRoom = await io.in(driverRoom).fetchSockets();
 
     logger.info(`📍 Broadcasting to ${socketsInRoom.length} clients in room ${driverRoom}`);
 
     // Broadcast to each customer with personalized distance
+    let customerCount = 0;
     for (const clientSocket of socketsInRoom) {
       // Skip the driver's own socket
       if (clientSocket.id === socket.id) {
@@ -344,9 +420,19 @@ const handleDriverLocationUpdate = async (io, socket, data) => {
         distanceKm,
         timestamp: new Date().toISOString(),
       });
+      
+      customerCount++;
     }
 
-    logger.info(`📍 Driver ${driverId} location broadcast to ${socketsInRoom.length - 1} customers: [${latitude}, ${longitude}]`);
+    // Confirm to driver
+    socket.emit('location-update-success', {
+      latitude,
+      longitude,
+      customersNotified: customerCount,
+      timestamp: new Date().toISOString()
+    });
+
+    logger.info(`📍 Driver ${driverId} location broadcast to ${customerCount} customers: [${latitude}, ${longitude}]`);
     
   } catch (err) {
     logger.error('❌ Error in handleDriverLocationUpdate:', err);
@@ -354,17 +440,40 @@ const handleDriverLocationUpdate = async (io, socket, data) => {
   }
 };
 
+/**
+ * Handle socket disconnect
+ */
+const handleDisconnect = (socket) => {
+  const { driverId, customerId, trackingDriverId } = socket;
+  
+  if (driverId) {
+    logger.info(`🚗 Driver ${driverId} disconnected`);
+  }
+  
+  if (customerId && trackingDriverId) {
+    logger.info(`👤 Customer ${customerId} disconnected while tracking driver ${trackingDriverId}`);
+  }
+  
+  // Clean up socket properties to prevent memory leaks
+  delete socket.driverId;
+  delete socket.customerId;
+  delete socket.customerLat;
+  delete socket.customerLng;
+  delete socket.trackingDriverId;
+};
+
+
 
 module.exports = {
   handleJoinUser,
   handleJoinChat,
-  handleSendMessage,
-  handleTyping,
-  handleStopTyping,
   handleLeaveChat,
   handleJoinDriver,
   handleTrackDriver,
   handleStopTrackingDriver,
   handleDriverLocationUpdate,
   handleJoinDriver,
+  handleDisconnect,
+  handleCustomerLocationUpdate,
+  handleSendMessage
 };

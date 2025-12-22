@@ -6,6 +6,8 @@ const { authenticateToken } = require('../middleware/auth');
 
 router.use(authenticateToken);
 
+router.post('/location-update', socketController.handleLocationUpdate);
 router.post('/send-message', socketController.handleSendMessage);
+router.get('/messages/:rideId', socketController.handleGetMessages);
 
 module.exports = router;
