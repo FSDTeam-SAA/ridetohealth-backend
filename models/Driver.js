@@ -8,8 +8,7 @@ const driverSchema = new mongoose.Schema({
   },
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Service',
-    required: true,
+    ref: 'Service'
   },
   vehicleId: {
     type: mongoose.Schema.Types.ObjectId,
