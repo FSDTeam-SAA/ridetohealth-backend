@@ -63,10 +63,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     defualt:null
   },
-  serviceTypes: [{
-      type: mongoose.Schema.Types.String,
-      ref: 'Service'
-    }],
+  serviceTypes: {
+    type: String,
+    default: true
+  },
   currentLocation: {
     type: {
       type: String,
