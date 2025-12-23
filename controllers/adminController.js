@@ -195,7 +195,7 @@ class AdminController {
         return res.status(404).json({ success: false, message: 'Driver not found' });
       }
 
-      const driverUserId = driver.userId.toString();
+      const driverUserId = driver.userId;
        // Emit to driver
       const io = req.app.get('io');
       const targetRoom = `driver:${driverUserId}`;
@@ -209,7 +209,7 @@ class AdminController {
 
       // ✅ Send only string IDs in socket event
       io.to(targetRoom).emit('assigned_driver', {
-        senderId: customerId,          
+        senderId: senderId,          
         receiverId: driverUserId,        
         message: 'Approved as driver. You can now start accepting rides.',
       });
@@ -251,7 +251,7 @@ class AdminController {
         return res.status(404).json({ success: false, message: 'Driver not found' });
       }
 
-      const driverUserId = driver.userId.toString();
+      const driverUserId = driver.userId;
 
        // Emit to driver
       const io = req.app.get('io');
@@ -266,7 +266,7 @@ class AdminController {
 
       // ✅ Send only string IDs in socket event
       io.to(targetRoom).emit('assigned_driver', {
-        senderId: customerId,          
+        senderId: senderId,
         receiverId: driverUserId,        
         message: 'Rejected as driver. Please review your details and try again.',
       });
