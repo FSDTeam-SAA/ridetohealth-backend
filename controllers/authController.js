@@ -24,7 +24,7 @@ class AuthController {
         role = "customer",
         licenseNumber,
         nidNumber,
-        serviceTypes,
+        serviceId,
         insuranceInformation
       } = req.body;
 
@@ -57,10 +57,10 @@ class AuthController {
 
       if (role === "driver") {
         // Validate driver fields
-        if (!licenseNumber || !nidNumber || !serviceTypes) {
+        if (!licenseNumber || !nidNumber || !serviceId) {
           return res.status(400).json({
             success: false,
-            message: "Driver registration requires license number, NID number, and service types."
+            message: "Driver registration requires license number, NID number, and service ID."
           });
         }
 
@@ -137,7 +137,7 @@ class AuthController {
           nidNumber,
           nidImage,
           selfieImage,
-          serviceTypes,
+          serviceId,
           insuranceInformation
         })
       });
@@ -164,7 +164,7 @@ class AuthController {
       // 6️⃣ Create driver profile if role is driver
       if (role === "driver") {
         const adminId = process.env.ADMIN_ID;
-        const driver = await Driver.create({ userId: user._id });
+        const driver = await Driver.create({ userId: user._id, serviceId });
        
         // Send notification
         notification = await sendNotification({
@@ -231,7 +231,7 @@ class AuthController {
       const { error } = validateLogin(req.body);
 
       if (error) {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           message: error.details[0].message
         });
@@ -247,7 +247,7 @@ class AuthController {
 
       if (!user.isEmailVerified && !user.isPhoneVerified) {
         console.log("User not verified:", user._id);
-        res.status(401).json({
+        return res.status(401).json({
           success: false,
           message: 'User is not verified'
         });
@@ -255,7 +255,7 @@ class AuthController {
       }
 
       if (!user || !(await user.comparePassword(password))) {
-        res.status(401).json({
+        return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
         });
@@ -263,7 +263,7 @@ class AuthController {
       }
 
       if (!user.isActive) {
-        res.status(401).json({
+        return res.status(401).json({
           success: false,
           message: 'Account is suspended'
         });
