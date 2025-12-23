@@ -64,8 +64,7 @@ const userSchema = new mongoose.Schema({
     defualt:null
   },
   serviceTypes: {
-    type: String,
-    default: true
+    type: [String]
   },
   currentLocation: {
     type: {
