@@ -167,14 +167,14 @@ class AuthController {
         const driver = await Driver.create({ userId: user._id });
        
         // Send notification
-        notification = await sendNotification({
-          senderId: driver._id,
-          receiverId: adminId,
-          title: 'driver_request',
-          message: `New driver request from ${user.fullName}`,
-          type: 'driver_request',
-          data: { adminId: adminId } // ✅ String
-        });
+        // notification = await sendNotification({
+        //   senderId: driver._id,
+        //   receiverId: adminId,
+        //   title: 'driver_request',
+        //   message: `New driver request from ${user.fullName}`,
+        //   type: 'driver_request',
+        //   data: { adminId: adminId } // ✅ String
+        // });
       }
 
       const payload = { _id: user._id, role: user.role };
