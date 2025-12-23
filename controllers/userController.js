@@ -177,8 +177,11 @@ class UserController {
 
   async getSavedPlaces(req, res) {
     try {
-      console.log(req.user.userId);
-      const user = await User.findById(req.user.userId).select('savedPlaces');
+      
+      console.log(req.user.userId, "daskldfdafajlkl;l;lf");
+      const userId = req.user.userId;
+      const user = await User.findById(userId).select('savedPlaces');
+      
       res.json({
         success: true,
         data: user.savedPlaces
@@ -187,7 +190,7 @@ class UserController {
       logger.error('Get saved places error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message,
       });
     }
   }
