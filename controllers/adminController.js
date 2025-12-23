@@ -194,16 +194,33 @@ class AdminController {
         return res.status(404).json({ success: false, message: 'Driver not found' });
       }
 
-      const receiverId = driver.userId;
+      const driverUserId = driver.userId.toString();
+       // Emit to driver
+      const io = req.app.get('io');
+      const targetRoom = `driver:${driverUserId}`;
+      
+      // Check sockets in room
+      const socketsInRoom = await io.in(targetRoom).allSockets();
+      
+      if (socketsInRoom.size === 0) {
+        console.warn('⚠️ WARNING: No sockets in room! Driver not connected.');
+      }
 
+      // ✅ Send only string IDs in socket event
+      io.to(targetRoom).emit('assigned_driver', {
+        senderId: customerId,          
+        receiverId: driverUserId,        
+        message: 'Approved as driver. You can now start accepting rides.',
+      });
       // Send notification to driver
       const notification = await sendNotification({
         senderId,
-        receiverId,
+        receiverId: driverUserId  ,
         title: 'Driver Approved',
         message: 'Your driver application has been approved. You can now start accepting rides.',
         type: 'driver_approval'
       });
+
 
       res.json({ 
         success: true, 
@@ -233,12 +250,29 @@ class AdminController {
         return res.status(404).json({ success: false, message: 'Driver not found' });
       }
 
-      const receiverId = driver.userId;
+      const driverUserId = driver.userId.toString();
 
+       // Emit to driver
+      const io = req.app.get('io');
+      const targetRoom = `driver:${driverUserId}`;
+      
+      // Check sockets in room
+      const socketsInRoom = await io.in(targetRoom).allSockets();
+      
+      if (socketsInRoom.size === 0) {
+        console.warn('⚠️ WARNING: No sockets in room! Driver not connected.');
+      }
+
+      // ✅ Send only string IDs in socket event
+      io.to(targetRoom).emit('assigned_driver', {
+        senderId: customerId,          
+        receiverId: driverUserId,        
+        message: 'Rejected as driver. Please review your details and try again.',
+      });
       // Send notification to driver
       const notification = await sendNotification({
         senderId,
-        receiverId,
+        receiverId: driverUserId,
         title: 'Driver Rejected',
         message: 'Your driver application has been rejected. Please review your details and try again.',
         type: 'driver_approval'
@@ -369,11 +403,13 @@ class AdminController {
 
       const { vehicleId, driverId } = req.body;
 
-      console.log("vehicleId", vehicleId);
-      console.log("driverId", driverId);
+      // console.log("vehicleId", vehicleId);
+      // console.log("driverId", driverId);
 
       const vehicle = await Vehicle.findById(vehicleId);
       const driver = await Driver.findById(driverId);
+      const driverUserId = driver.userId.toString();
+      const customerId = req.user.userId.toString();
 
       if (!vehicle || !driver) {
         return res.status(404).json({ success: false, message: 'Vehicle or Driver not found' });
@@ -386,7 +422,38 @@ class AdminController {
       await vehicle.save();
       await driver.save();
 
-      res.json({ success: true, message: 'Driver assigned to vehicle successfully', data: { vehicle, driver } });
+      // Emit to driver
+      const io = req.app.get('io');
+      const targetRoom = `driver:${driverUserId}`;
+      
+      // Check sockets in room
+      const socketsInRoom = await io.in(targetRoom).allSockets();
+      
+      if (socketsInRoom.size === 0) {
+        console.warn('⚠️ WARNING: No sockets in room! Driver not connected.');
+      }
+
+      // ✅ Send only string IDs in socket event
+      io.to(targetRoom).emit('assigned_driver', {
+        senderId: customerId,          
+        receiverId: driverUserId,        
+        rideId: rideIdString,           
+        pickup: pickupLocation,
+        dropoff: dropoffLocation,
+        totalFare,
+        message: 'A new taxi has been assigned to you.',
+        vehicle
+      });
+      const sendNotificationToDriver = await sendNotification({
+        senderId: req.user.userId,
+        receiverId: driver.userId,
+        title: 'Vehicle Assigned',
+        message: `You have been assigned to vehicle ${vehicle.taxiName} (${vehicle.plateNumber}).`,
+        type: 'vehicle_assignment'
+      });
+
+
+      res.json({ success: true, message: 'Driver assigned to vehicle successfully', data: { vehicle, driver, sendNotificationToDriver } });
 
     } catch (error) {
       logger.error('Assign driver to vehicle error:', error);
