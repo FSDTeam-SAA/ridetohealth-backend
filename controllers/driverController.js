@@ -222,9 +222,8 @@ async updateLocation(req, res) {
     try {
       const { page = 1, limit = 10, status } = req.query;
       const userId = req.user.userId;
-      const role = req.user.role; // <-- assuming token contains role
+      const role = req.user.role; 
 
-      // Check User Exists
       const user = await User.findById(userId);
       if (!user) {
         return res.status(404).json({
@@ -233,9 +232,6 @@ async updateLocation(req, res) {
         });
       }
 
-      // ==========================
-      // 🔥 BUILD ROLE-BASED QUERY
-      // ==========================
       let query = {};
 
       if (role === "driver") {
@@ -248,22 +244,15 @@ async updateLocation(req, res) {
           });
         }
 
-        query.driverId = driver.userId; // only own rides
+        query.driverId = driver.userId; 
+      }
+      if(role === 'admin'){
+        query = {};
       }
 
-      // Admin → gets all rides (no driver filter)
-      // Driver → gets only his rides (query.driverId already added)
-
-      // ==========================
-      // 🔥 STATUS FILTER (optional)
-      // ==========================
       if (status) {
         query.status = { $regex: status, $options: "i" };
       }
-
-      // ==========================
-      // 🔥 FETCH DATA
-      // ==========================
       const rides = await Ride.find(query)
         .populate("customerId", "fullName profileImage")
         .populate("serviceId", "name category")

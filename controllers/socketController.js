@@ -299,10 +299,10 @@ async handleSendMessage(req, res) {
       };
 
       // Notify passenger
-      io.to(`user_${ride.customerId}`).emit('ride_status_update', statusUpdate);
+      io.to(`user:${ride.customerId}`).emit('ride_status_update', statusUpdate);
       
       // Notify ride room
-      io.to(`ride_${rideId}`).emit('ride_status_update', statusUpdate);
+      io.to(`ride:${rideId}`).emit('ride_status_update', statusUpdate);
 
       // Notify admins
       io.to('admins').emit('ride_status_update', statusUpdate);
