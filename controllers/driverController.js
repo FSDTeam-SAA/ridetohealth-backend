@@ -587,73 +587,174 @@ async updateLocation(req, res) {
 
 
   // Create Stripe Connect Account for Driver
-  async createDriverStripeAccount(req, res) {
-    try {
-      const userId = req.user.userId;
-      const user = await User.findById(userId);
-      // const { driverId, email } = req.body;
+  // async createDriverStripeAccount(req, res) {
+  //   try {
+  //     const userId = req.user.userId;
+  //     const user = await User.findById(userId);
+  //     // const { driverId, email } = req.body;
 
-      // const driver = await Driver.findById(driverId);
-      const driver = await Driver.findOne({ userId });
-      // console.log(driver);
-      if (!driver) {
-        return res.status(404).json({
-          success: false,
-          message: "Driver not found",
-        });
-      }
+  //     // const driver = await Driver.findById(driverId);
+  //     const driver = await Driver.findOne({ userId });
+  //     // console.log(driver);
+  //     if (!driver) {
+  //       return res.status(404).json({
+  //         success: false,
+  //         message: "Driver not found",
+  //       });
+  //     }
 
-      const account = await stripe.accounts.create({
+  //     const account = await stripe.accounts.create({
         
-        type: 'express',
-        email: user.email,
-        business_type: 'individual',
-        individual: {
-          first_name: user.fullName,
-          email: user.email,
-          // phone: user.phone,
-        },
-        business_profile: {
-          name: user.companyName,
-          product_description: user.professionTitle,
-          url: 'https://your-default-website.com/',
-        },
-        settings: {
-          payments: {
-            statement_descriptor: user.companyName,
-          },
-        },
-      });
-      if (!account) {
-        throw new AppError(400, 'Failed to create stripe account');
-      }
+  //       type: 'express',
+  //       email: user.email,
+  //       business_type: 'individual',
+  //       individual: {
+  //         first_name: user.fullName,
+  //         email: user.email,
+  //         // phone: user.phone,
+  //       },
+  //       business_profile: {
+  //         name: user.companyName,
+  //         product_description: user.professionTitle,
+  //         url: 'https://your-default-website.com/',
+  //       },
+  //       settings: {
+  //         payments: {
+  //           statement_descriptor: user.companyName,
+  //         },
+  //       },
+  //     });
+  //     if (!account) {
+  //       throw new AppError(400, 'Failed to create stripe account');
+  //     }
 
-      // TODO: Save account.id to your driver database
-      driver.stripeDriverId = account.id;
-      await driver.save();
+  //     // TODO: Save account.id to your driver database
+  //     driver.stripeDriverId = account.id;
+  //     await driver.save();
 
 
-       const accountLink = await stripe.accountLinks.create({
-        account: account.id,
-        refresh_url: `${process.env.BASE_URL}/driver/onboarding/refresh`,
-        return_url: `${process.env.BASE_URL}/driver/onboarding/success`,
-        type: "account_onboarding",
-      });
+  //      const accountLink = await stripe.accountLinks.create({
+  //       account: account.id,
+  //       refresh_url: `${process.env.BASE_URL}/driver/onboarding/refresh`,
+  //       return_url: `${process.env.BASE_URL}/driver/onboarding/success`,
+  //       type: "account_onboarding",
+  //     });
 
-      res.json({
-        success: true,
-        accountId: account.id,
-        message: "Stripe Connect account created",
-        url: accountLink.url,
-      });
-    } catch (error) {
-      console.log("Create Stripe account error:", error);
-      res.status(500).json({
+  //     res.json({
+  //       success: true,
+  //       accountId: account.id,
+  //       message: "Stripe Connect account created",
+  //       url: accountLink.url,
+  //     });
+  //   } catch (error) {
+  //     console.log("Create Stripe account error:", error);
+  //     res.status(500).json({
+  //       success: false,
+  //       error: error.message,
+  //     });
+  //   }
+  // }
+
+  // Create Stripe Connect Account for Driver
+async createDriverStripeAccount(req, res) {
+  try {
+    const userId = req.user.userId;
+    
+    // Fetch user and driver in parallel
+    const [user, driver] = await Promise.all([
+      User.findById(userId),
+      Driver.findOne({ userId })
+    ]);
+
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        error: error.message,
+        message: "User not found",
       });
     }
+
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver not found",
+      });
+    }
+
+    // Check if driver already has a Stripe account
+    if (driver.stripeDriverId) {
+      return res.status(400).json({
+        success: false,
+        message: "Driver already has a Stripe account",
+        accountId: driver.stripeDriverId,
+      });
+    }
+
+    // Create Stripe Connect Account
+    const account = await stripe.accounts.create({
+      type: 'express',
+      country: 'US', // Add country code (required)
+      email: user.email,
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      business_type: 'individual',
+      individual: {
+        first_name: user.fullName?.split(' ')[0] || user.fullName,
+        last_name: user.fullName?.split(' ').slice(1).join(' ') || '',
+        email: user.email,
+      },
+      business_profile: {
+        name: user.companyName || user.fullName,
+        product_description: user.professionTitle || 'Transportation services',
+        url: process.env.BUSINESS_URL || 'https://yourwebsite.com',
+      },
+      settings: {
+        payouts: {
+          schedule: {
+            interval: 'daily', // or 'weekly', 'monthly'
+          },
+        },
+      },
+    });
+
+    // Save account ID to driver
+    driver.stripeDriverId = account.id;
+    await driver.save();
+
+    // Create account link for onboarding
+    const accountLink = await stripe.accountLinks.create({
+      account: account.id,
+      refresh_url: `${process.env.BASE_URL}/driver/onboarding/refresh`,
+      return_url: `${process.env.BASE_URL}/driver/onboarding/success`,
+      type: 'account_onboarding',
+    });
+
+    res.json({
+      success: true,
+      accountId: account.id,
+      onboardingUrl: accountLink.url,
+      message: "Stripe Connect account created successfully",
+    });
+
+  } catch (error) {
+    console.error("Create Stripe account error:", error);
+    
+    // Handle specific Stripe errors
+    if (error.type === 'StripePermissionError') {
+      return res.status(403).json({
+        success: false,
+        error: "Stripe Connect is not enabled. Please enable it in your Stripe Dashboard.",
+        setupUrl: "https://dashboard.stripe.com/settings/connect",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to create Stripe account",
+    });
   }
+}
   /**
    * ✅ Contractor Dashboard Login Link
    */
