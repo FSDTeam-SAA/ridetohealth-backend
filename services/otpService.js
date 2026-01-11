@@ -3,18 +3,28 @@
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
 const logger = require('../utils/logger');
-const { emailAddress, emailPass, twilioSid, twilioAuthToken, twilioPhoneNumber } = require('../config/config');
+const { emailAddress, emailPass, twilioSid, twilioAuthToken, twilioPhoneNumber, emailHost, emailPort } = require('../config/config');
 
 // ✅ Twilio Client
 const twilioClient = twilio(twilioSid, twilioAuthToken);
 
 // ✅ Nodemailer Transporter
+// const emailTransporter = nodemailer.createTransport({
+//   service: 'gmail',
+//   auth: {
+//     user: emailAddress,
+//     pass: emailPass
+//   }
+// });
+
 const emailTransporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: emailHost,
+  port: emailPort,
+  secure: false,
   auth: {
     user: emailAddress,
-    pass: emailPass
-  }
+    pass: emailPass,
+  },
 });
 
 // ✅ Generate 6-digit OTP
