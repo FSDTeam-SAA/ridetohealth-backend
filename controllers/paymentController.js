@@ -179,7 +179,7 @@ async createRidePayment(req, res) {
     }
 
     let session;
-    const totalAmount = Number(amount);
+    const totalAmount = Math.round(Number(amount) * 100);
 
     let adminFee = 0;
     let driverAmount = 0;
@@ -254,7 +254,6 @@ async createRidePayment(req, res) {
         },
       });
     }
-
     // Save payment info to database
     await Payment.create({
       rideId,
@@ -265,6 +264,7 @@ async createRidePayment(req, res) {
       stripeSessionId: session.id,
       status: 'pending',
     });
+    
 
     res.json({
       success: true,

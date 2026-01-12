@@ -29,10 +29,11 @@ class WebhookController {
           const session = event.data.object;
           console.log('Checkout session completed:', session.id);
 
-          await Payment.findOneAndUpdate(
-            { success_url: session.success_url },
+          const result = await Payment.findOneAndUpdate(
+            { stripeSessionId: session.id },
             { status: 'succeeded', paidAt: new Date() }
           );
+          console.log('Payment record updated:', result);
           break;
         }
 
@@ -40,7 +41,7 @@ class WebhookController {
           const failedPayment = event.data.object;
           console.log('Payment failed:', failedPayment.id);
           await Payment.findOneAndUpdate(
-            { success_url: session.cancel_url },
+            { stripeSessionId: session.id },
             { status: 'failed' }
           );
           break;

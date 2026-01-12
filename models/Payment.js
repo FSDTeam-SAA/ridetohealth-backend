@@ -52,6 +52,12 @@ const paymentSchema = new mongoose.Schema(
       type: Object,
       default: {},
     },
+    stripeSessionId: {
+      type: String
+    },
+    paidAt: {
+      type: Date,
+    },
     isStripeVerified:{
       type:Boolean
     }
