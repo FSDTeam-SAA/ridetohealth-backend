@@ -189,7 +189,7 @@ async createRidePayment(req, res) {
      * Split payment between Admin & Driver
      */
     if (stripeDriverId) {
-      adminFee = Math.round(totalAmount * 0.5); // 50% admin fee
+      adminFee = Math.round(totalAmount * 0.7); // 70% admin fee
       driverAmount = totalAmount - adminFee;
 
       session = await stripe.checkout.sessions.create({
