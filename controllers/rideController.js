@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { calculateFare, calculateDistance } = require('../services/fareService');
 const { sendNotification } = require('../services/notificationService');
 const logger = require('../utils/logger');
+const mongoose = require('mongoose');
 
 
 
@@ -25,10 +26,9 @@ async requestRide(req, res) {
     const customerId = req.user.userId.toString();
     const customer = await User.findById(customerId);
 
-    if (!driverId) {
+    if (!mongoose.Types.ObjectId.isValid(driverId)) {
       return res.status(400).json({
-        success: false,
-        message: 'Driver ID is required'
+        message: "Invalid driver ID",
       });
     }
 
