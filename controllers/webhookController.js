@@ -33,12 +33,10 @@ class WebhookController {
             { stripeSessionId: session.id },
             { status: 'succeeded', paidAt: new Date() }
           );
-          const driver = await Driver.findById(result.driverId);
-          const rider = await Ride.findOneAndUpdate(
-            { driverId: driver.userId },
-            { paymentStatus: 'paid' }
-          );
-          
+          console.log('Payment record updated:', result);
+          const ride = await Ride.findById(result.rideId.toString());
+          ride.paymentStatus = 'paid';
+          const check = await ride.save();
           break;
         }
 
