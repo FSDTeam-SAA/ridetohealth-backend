@@ -168,8 +168,7 @@ class PaymentController {
 
 async createRidePayment(req, res) {
   try {
-    const rideId = req.user.userId;
-    const { amount, stripeDriverId, driverId, title } = req.body;
+    const { amount, stripeDriverId, driverId, title, rideId } = req.body;
 
     if (!amount) {
       return res.status(400).json({
@@ -179,7 +178,7 @@ async createRidePayment(req, res) {
     }
 
     let session;
-    const totalAmount = Math.round(Number(amount) * 100);
+    const totalAmount = Math.round(Number(amount));
 
     let adminFee = 0;
     let driverAmount = 0;
