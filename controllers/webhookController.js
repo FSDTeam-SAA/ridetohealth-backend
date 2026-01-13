@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const Stripe = require('stripe');
 const Payment = require('../models/Payment');
 const Driver = require('../models/Driver');
+const Ride = require('../models/Ride');
 
 dotenv.config();
 
@@ -27,13 +28,17 @@ class WebhookController {
       switch (event.type) {
         case 'checkout.session.completed': {
           const session = event.data.object;
-          console.log('Checkout session completed:', session.id);
 
           const result = await Payment.findOneAndUpdate(
             { stripeSessionId: session.id },
             { status: 'succeeded', paidAt: new Date() }
           );
-          console.log('Payment record updated:', result);
+          const driver = await Driver.findById(result.driverId);
+          const rider = await Ride.findOneAndUpdate(
+            { driverId: driver.userId },
+            { paymentStatus: 'paid' }
+          );
+          
           break;
         }
 

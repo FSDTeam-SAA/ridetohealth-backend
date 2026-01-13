@@ -11,72 +11,92 @@ const { sendNotification } = require('../services/notificationService');
 const logger = require('../utils/logger');
 const Category = require('../models/Category');
 const { uploadToCloudinary } = require('../services/cloudinaryService');
+ const Payment = require('../models/Payment');
 
 
 class AdminController {
   
-  // === Dashboard ===
-  async getDashboardStats(req, res) {
-    try {
-      const [
-        totalUsers,
-        totalDrivers,
-        totalRides,
-        totalRevenue,
-        activeRides,
-        pendingDrivers,
-        pendingReports
-      ] = await Promise.all([
-        User.countDocuments({ role: 'customer' }),
-        Driver.countDocuments({ status: 'approved' }),
-        Ride.countDocuments(),
-        Ride.aggregate([
-          { $match: { status: 'completed' } },
-          { $group: { _id: null, total: { $sum: '$commission.amount' } } }
-        ]),
-        Ride.countDocuments({ status: { $in: ['requested', 'accepted', 'in_progress'] } }),
-        Driver.countDocuments({ status: 'pending' }),
-        Report.countDocuments({ status: 'pending' })
-      ]);
+async getDashboardStats(req, res) {
+  try {
+    const [
+      totalUsers,
+      totalDrivers,
+      totalRides,
+      totalRevenueResult,
+      activeRides,
+      pendingDrivers,
+      pendingReports
+    ] = await Promise.all([
+      User.countDocuments({ role: 'customer' }),
+      Driver.countDocuments({ status: 'approved' }),
+      Ride.countDocuments(),
 
-      const revenue = totalRevenue.length > 0 ? totalRevenue[0].total : 0;
-
-      const monthlyStats = await Ride.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: new Date(new Date().setMonth(new Date().getMonth() - 12)) }
-          }
-        },
+      // ✅ TOTAL REVENUE FROM PAYMENTS (SUCCESS ONLY)
+      Payment.aggregate([
+        { $match: { status: 'succeeded' } },
         {
           $group: {
-            _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
-            rides: { $sum: 1 },
-            revenue: { $sum: '$commission.amount' }
+            _id: null,
+            totalRevenue: { $sum: '$amount' } // OR '$adminFee'
           }
-        },
-        { $sort: { '_id.year': 1, '_id.month': 1 } }
-      ]);
-
-      res.json({
-        success: true,
-        data: {
-          overview: {
-            totalUsers,
-            totalDrivers,
-            totalRides,
-            totalRevenue: revenue,
-            activeRides,
-            pendingDrivers,
-            pendingReports
-          },
-          monthlyStats
         }
-      });
-    } catch (error) {
-      logger.error('Get dashboard stats error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
+      ]),
+
+      Ride.countDocuments({ status: { $in: ['requested', 'accepted', 'in_progress'] } }),
+      Driver.countDocuments({ status: 'pending' }),
+      Report.countDocuments({ status: 'pending' })
+    ]);
+
+    const totalRevenue =
+      totalRevenueResult.length > 0 ? totalRevenueResult[0].totalRevenue : 0;
+
+    // ✅ MONTHLY STATS BASED ON PAYMENTS
+    const monthlyStats = await Payment.aggregate([
+      {
+        $match: {
+          status: 'succeeded',
+          createdAt: {
+            $gte: new Date(new Date().setMonth(new Date().getMonth() - 12))
+          }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          totalPayments: { $sum: 1 },
+          revenue: { $sum: '$amount' } // OR '$adminFee'
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        overview: {
+          totalUsers,
+          totalDrivers,
+          totalRides,
+          totalRevenue,
+          activeRides,
+          pendingDrivers,
+          pendingReports
+        },
+        monthlyStats
+      }
+    });
+  } catch (error) {
+    logger.error('Get dashboard stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
   }
+}
+
 
   // === Driver Management ===
   async getDrivers(req, res) {
