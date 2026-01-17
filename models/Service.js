@@ -1,4 +1,3 @@
-const { boolean } = require('joi');
 const mongoose = require('mongoose');
 
 const serviceSchema = new mongoose.Schema({
@@ -7,7 +6,6 @@ const serviceSchema = new mongoose.Schema({
     required: true
   },
   description: String,
-  // category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true},
   icon: String,
   baseFare: {
     type: Number,

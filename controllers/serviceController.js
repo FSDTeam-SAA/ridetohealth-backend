@@ -30,46 +30,72 @@ class ServiceController {
     }
   
  async getAllServices(req, res) {
-    try {
-      const { page = 1, limit = 10, search = "" } = req.query;
+  try {
+    const { page = 1, limit = 10, search = "" } = req.query;
 
-      // Convert query params to numbers
-      const pageNum = parseInt(page, 10);
-      const limitNum = parseInt(limit, 10);
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
 
-      // Build search condition using regex
-      const searchCondition = {
-        isActive: true,
-        ...(search && {
-          name: { $regex: search, $options: "i" } // case-insensitive search
-        })
-      };
+    const matchStage = {
+      isActive: true,
+      ...(search && {
+        name: { $regex: search, $options: "i" }
+      })
+    };
 
-      // Fetch total count for pagination info
-      const total = await Service.countDocuments(searchCondition);
+    const services = await Service.aggregate([
+      { $match: matchStage },
 
-      // Fetch paginated and filtered services
-      const services = await Service.find(searchCondition)
-        .skip((pageNum - 1) * limitNum)
-        .limit(limitNum)
-        .sort({ createdAt: -1 }); // optional: latest first
+      {
+        $lookup: {
+          from: "commissions",        
+          localField: "_id",
+          foreignField: "applicableServices",
+          as: "commission"
+        }
+      },
 
-      // Response
-      res.json({
-        success: true,
-        currentPage: pageNum,
-        totalPages: Math.ceil(total / limitNum),
-        totalItems: total,
-        data: services
-      });
-    } catch (error) {
-      logger.error("Get all services error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Internal server error"
-      });
-    }
+      {
+        $addFields: {
+          commission: {
+            $first: {
+              $filter: {
+                input: "$commission",
+                as: "c",
+                cond: {
+                  $and: [
+                    { $eq: ["$$c.isActive", true] },
+                    { $eq: ["$$c.status", "active"] }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+
+      { $sort: { createdAt: -1 } },
+      { $skip: (pageNum - 1) * limitNum },
+      { $limit: limitNum }
+    ]);
+
+    const total = await Service.countDocuments(matchStage);
+
+    res.json({
+      success: true,
+      currentPage: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+      totalItems: total,
+      data: services
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error"
+    });
   }
+}
 
   async getServiceById(req, res) {
     try {
