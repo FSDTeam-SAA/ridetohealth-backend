@@ -15,7 +15,11 @@ const commissionSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  date:{
+  startDate:{
+    type: Date,
+    default: Date.now
+  },
+  endDate: {
     type: Date,
     default: Date.now
   },
@@ -28,10 +32,10 @@ const commissionSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  applicableServices: [{
+  applicableServices: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service'
-  }],
+  },
   isActive: {
     type: Boolean,
     default: true

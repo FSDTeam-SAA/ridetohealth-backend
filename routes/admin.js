@@ -49,6 +49,9 @@ router.put('/promo-codes/:promoCodeId', adminController.updatePromoCode);
 // Commission Management
 router.get('/commission/history', adminController.getCommissionHistory);
 router.post('/commission', adminController.createCommission);
+router.get('/commission/:commissionId', adminController.getCommissionById);
+router.put('/commission/:commissionId', adminController.updateCommission);
+router.delete('/commission/:commissionId', adminController.deleteCommission);
 
 //notifications management
 

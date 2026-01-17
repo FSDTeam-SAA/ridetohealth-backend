@@ -22,7 +22,6 @@ async requestRide(req, res) {
       totalFare
     } = req.body;
 
-    // ✅ Convert to string immediately
     const customerId = req.user.userId.toString();
     const customer = await User.findById(customerId);
 
@@ -32,7 +31,6 @@ async requestRide(req, res) {
       });
     }
 
-    // Check if user has any active rides
     const activeRide = await Ride.findOne({
       customerId,
       status: { $in: ['requested', 'accepted', 'driver_arrived', 'in_progress'] }
@@ -45,7 +43,6 @@ async requestRide(req, res) {
       });
     }
 
-    // ✅ Populate and convert to string
     const driver = await Driver.findById(driverId).populate('userId');
     
     if (!driver) {
@@ -55,7 +52,6 @@ async requestRide(req, res) {
       });
     }
 
-    // ✅ Convert all IDs to strings
     const driverUserId = driver.userId._id.toString();
     const driverDocId = driver._id.toString();
 
@@ -66,10 +62,9 @@ async requestRide(req, res) {
       });
     }
 
-    // Create ride request
     const ride = new Ride({
       customerId,
-      driverId: driverUserId, // Store User ID as string
+      driverId: driverUserId,
       pickupLocation,
       dropoffLocation,
       totalFare,

@@ -648,7 +648,7 @@ async getDashboardStats(req, res) {
   async createCommission(req, res) {
     try {
 
-      const { title, description, discountType, commission, applicableServices, status } = req.body;
+      const { title, description, discountType, commission, applicableServices, status, startDate, endDate } = req.body;
 
       const newCommission = new Commission({
         title,
@@ -657,6 +657,8 @@ async getDashboardStats(req, res) {
         commission,
         applicableServices,
         status,
+        startDate,
+        endDate,
         createdBy: req.user.userId
       });
 
@@ -669,8 +671,58 @@ async getDashboardStats(req, res) {
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
+  async getCommissionById(req, res) {
+    try {
+      const { commissionId } = req.params;
 
-  // === Commission ===
+      const commission = await Commission.findById(commissionId);
+
+      if (!commission) {
+        return res.status(404).json({ success: false, message: 'Commission not found' });
+      }
+      res.json({ success: true, data: commission });
+    } catch (error) {
+      logger.error('Get commission by ID error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+  async updateCommission(req, res) {
+    try {
+      const { commissionId } = req.params;
+      const updateData = req.body;
+      const commission = await Commission.findByIdAndUpdate(
+        commissionId,
+        updateData,
+        { new: true, runValidators: true }
+      );
+      if (!commission) {
+        return res.status(404).json({ success: false, message: 'Commission not found' });
+      }
+
+      if(commission.status === 'inactive') commission.isActive = false;
+      if(commission.status === 'active') commission.isActive = true;
+      await commission.save();
+
+      res.json({ success: true, message: 'Commission updated successfully', data: commission });
+      
+    } catch (error) {
+      logger.error('Update commission error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    } 
+  }
+  async deleteCommission(req, res) {
+    try {
+      const { commissionId } = req.params;
+      const commission = await Commission.findByIdAndDelete(commissionId);
+      if (!commission) {
+        return res.status(404).json({ success: false, message: 'Commission not found' });
+      }
+      res.json({ success: true, message: 'Commission deleted successfully' });
+    } catch (error) {
+      logger.error('Delete commission error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
   async getCommissionHistory(req, res) {
     try {
       const { page = 1, limit = 10, startDate, endDate } = req.query;
@@ -709,22 +761,10 @@ async getDashboardStats(req, res) {
     }
   }
 
-
-
-  // === Users ===
- // === Users ===
   async getAllUsers(req, res) {
     try {
       const { page = 1, limit = 10, search } = req.query;
-
-      // -----------------------------------
-      // 🔥 Only customers
-      // -----------------------------------
       const filter = { role: "customer" };
-
-      // -----------------------------------
-      // 🔍 Search if provided
-      // -----------------------------------
       if (search) {
         filter.$or = [
           { fullName: { $regex: search, $options: "i" } },
@@ -733,9 +773,6 @@ async getDashboardStats(req, res) {
         ];
       }
 
-      // -----------------------------------
-      // 🔥 Fetch customers
-      // -----------------------------------
       const customers = await User.find(filter)
         .select("-password")
         .sort({ createdAt: -1 })
@@ -744,36 +781,24 @@ async getDashboardStats(req, res) {
 
       const total = await User.countDocuments(filter);
 
-      // -----------------------------------
-      // 🔥 Fetch rides for all customers
-      // -----------------------------------
       const customerIds = customers.map((c) => c._id);
 
       const rides = await Ride.find({ customerId: { $in: customerIds } }).sort({ createdAt: -1 });
 
-      // -----------------------------------
-      // 🔥 Group rides by customer
-      // -----------------------------------
       const rideMap = {};
       const completedRideCount = {};
 
       rides.forEach((ride) => {
         const cId = ride.customerId.toString();
 
-        // group ride history
         if (!rideMap[cId]) rideMap[cId] = [];
         rideMap[cId].push(ride);
 
-        // count completed rides
         if (ride.status === "completed") {
           if (!completedRideCount[cId]) completedRideCount[cId] = 0;
           completedRideCount[cId]++;
         }
       });
-
-      // -----------------------------------
-      // 🔥 Attach rideHistory + completed count
-      // -----------------------------------
       const enrichedCustomers = customers.map((customer) => {
         const cId = customer._id.toString();
         return {
@@ -783,9 +808,6 @@ async getDashboardStats(req, res) {
         };
       });
 
-      // -----------------------------------
-      // ✅ Response
-      // -----------------------------------
       res.json({
         success: true,
         data: {
@@ -809,10 +831,6 @@ async getDashboardStats(req, res) {
   async getUserById(req, res) {
     try {
       const { userId } = req.params;
-
-      // --------------------------
-      // 🔹 Get user
-      // --------------------------
       const user = await User.findById(userId).select("-password");
 
       if (!user) {
@@ -822,19 +840,9 @@ async getDashboardStats(req, res) {
         });
       }
 
-      // --------------------------
-      // 🔹 Get all rides for this user
-      // --------------------------
       const rides = await Ride.find({ customerId: user._id }).sort({ createdAt: -1 });
-
-      // --------------------------
-      // 🔹 Count completed rides
-      // --------------------------
       const totalCompletedRides = rides.filter((ride) => ride.status === "completed").length;
 
-      // --------------------------
-      // 🔹 Return user with ride data
-      // --------------------------
       res.json({
         success: true,
         data: {
