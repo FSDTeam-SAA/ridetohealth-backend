@@ -723,41 +723,37 @@ async getDashboardStats(req, res) {
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
-  async getCommissionHistory(req, res) {
+  async getAllCommissions(req, res) {
     try {
-      const { page = 1, limit = 10, startDate, endDate } = req.query;
-      const filter = { status: 'completed' };
-      if (startDate || endDate) {
-        filter.createdAt = {};
-        if (startDate) filter.createdAt.$gte = new Date(startDate);
-        if (endDate) filter.createdAt.$lte = new Date(endDate);
+
+      const { page = 1, limit = 10, status, search } = req.query;
+
+      const filter = {};
+      if (status) filter.status = status;
+      if (search) {
+        filter.$or = [
+          { title: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } }
+        ];
       }
 
-      const rides = await Ride.find(filter)
-        .populate('customerId', 'fullName')
-        .populate('driverId', 'fullName')
-        .select('customerId driverId finalFare commission createdAt')
+      const commissions = await Commission.find(filter)
         .sort({ createdAt: -1 })
         .limit(limit * 1)
         .skip((page - 1) * limit);
 
-      const total = await Ride.countDocuments(filter);
-      const totalCommission = await Ride.aggregate([
-        { $match: filter },
-        { $group: { _id: null, total: { $sum: '$commission.amount' } } }
-      ]);
+      const total = await Commission.countDocuments();
 
       res.json({
         success: true,
         data: {
-          rides,
-          totalCommission: totalCommission[0]?.total || 0,
+          commissions,
           pagination: { current: +page, pages: Math.ceil(total / limit), total }
         }
       });
     } catch (error) {
-      logger.error('Get commission history error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      logger.error('Get all commissions error:', error);
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 
