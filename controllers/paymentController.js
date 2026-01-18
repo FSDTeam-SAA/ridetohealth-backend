@@ -168,7 +168,7 @@ class PaymentController {
 
 async createRidePayment(req, res) {
   try {
-    const { amount, stripeDriverId, driverId, title, rideId } = req.body;
+    const { amount, stripeDriverId, driverId, title, rideId, rideDuration } = req.body;
 
     if (!amount) {
       return res.status(400).json({
@@ -176,6 +176,21 @@ async createRidePayment(req, res) {
         error: 'Amount is required',
       });
     }
+
+    const ride = await Ride.findById(rideId);
+    if (!ride) {
+      return res.status(404).json({
+        success: false,
+        error: 'Ride not found',
+      });
+    }
+
+    ride.startTime = new Date();
+    ride.rideDuration = Number(rideDuration);
+    ride.endTime = new Date(
+      ride.startTime.getTime() + Number(rideDuration) * 60000
+    ); 
+    await ride.save();
 
     let session;
     const totalAmount = Math.round(Number(amount));
