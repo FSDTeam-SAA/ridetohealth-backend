@@ -72,7 +72,7 @@ cron.schedule('0 */1 * * * *', async () => {
     if (driverIds.length > 0) {
       await Driver.updateMany(
         { _id: { $in: driverIds } },
-        { $set: { available: true } }
+        { $set: { isAvailable: true } }
       );
     }
 
