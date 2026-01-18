@@ -394,7 +394,7 @@ class UserController {
       drivers.map(async (driver) => {
         const vehicle = await Vehicle.findById(driver.vehicleId);
         const service = await Service.findById(vehicle?.serviceId);
-        const commission = await Commission.findOne({applicableServices:service._id});
+        const commission = service ? await Commission.findOne({applicableServices:service._id}) : null;
         return {
           driver,
           vehicle,
@@ -411,10 +411,10 @@ class UserController {
     });
 
   } catch (error) {
-    console.error('Get nearby drivers error:', error);
+    console.error('Get nearby drivers error:', error.message);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: error.message
     });
   }
 }
