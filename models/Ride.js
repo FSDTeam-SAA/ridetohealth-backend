@@ -15,7 +15,9 @@ const rideSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service'
   },
-
+  rideDuration: {
+    type: String
+  },
   pickupLocation: {
     type: {
       type: String,

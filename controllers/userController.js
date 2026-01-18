@@ -5,6 +5,7 @@ const Service = require('../models/Service');
 const { uploadToCloudinary } = require('../services/cloudinaryService');
 const logger = require('../utils/logger');
 const Vehicle = require('../models/Vehicle');
+const Commission = require('../models/Commission');
 
 class UserController {
   async getProfile(req, res) {
@@ -393,11 +394,12 @@ class UserController {
       drivers.map(async (driver) => {
         const vehicle = await Vehicle.findById(driver.vehicleId);
         const service = await Service.findById(vehicle?.serviceId);
-
+        const commission = await Commission.findOne({applicableServices:service._id});
         return {
           driver,
           vehicle,
-          service
+          service,
+          commission
         };
       })
     );
