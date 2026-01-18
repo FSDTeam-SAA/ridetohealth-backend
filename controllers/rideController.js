@@ -19,7 +19,8 @@ async requestRide(req, res) {
       dropoffLocation,
       paymentMethod,
       driverId,
-      totalFare
+      totalFare,
+      rideDuration
     } = req.body;
 
     const customerId = req.user.userId.toString();
@@ -68,7 +69,8 @@ async requestRide(req, res) {
       pickupLocation,
       dropoffLocation,
       totalFare,
-      paymentMethod
+      paymentMethod,
+      rideDuration,
     });
 
     await ride.save();
