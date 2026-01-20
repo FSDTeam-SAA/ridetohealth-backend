@@ -185,12 +185,12 @@ async createRidePayment(req, res) {
       });
     }
 
-    ride.startTime = new Date();
-    ride.rideDuration = Number(rideDuration);
-    ride.endTime = new Date(
-      ride.startTime.getTime() + Number(rideDuration) * 60000
-    ); 
-    await ride.save();
+    // ride.startTime = new Date();
+    // ride.rideDuration = Number(rideDuration);
+    // ride.endTime = new Date(
+    //   ride.startTime.getTime() + Number(rideDuration) * 60000
+    // ); 
+    // await ride.save();
 
     let session;
     const totalAmount = Math.round(Number(amount));

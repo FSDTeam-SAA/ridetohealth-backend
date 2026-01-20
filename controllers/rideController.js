@@ -63,6 +63,10 @@ async requestRide(req, res) {
       });
     }
 
+    const startTime = new Date();
+    // const endTime = new Date(startTime + Number(rideDuration) * 60000); 
+    const endTime = new Date(startTime.getTime() + Number(rideDuration) * 60000);
+
     const ride = new Ride({
       customerId,
       driverId: driverUserId,
@@ -71,8 +75,15 @@ async requestRide(req, res) {
       totalFare,
       paymentMethod,
       rideDuration,
+      startTime,
+      endTime
     });
 
+    // ride.startTime = new Date();
+    // ride.rideDuration = Number(rideDuration);
+    // ride.endTime = new Date(
+    //   ride.startTime.getTime() + Number(rideDuration) * 60000
+    // ); 
     await ride.save();
 
     // ✅ Convert ride ID to string
