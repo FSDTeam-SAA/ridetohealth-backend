@@ -23,7 +23,8 @@ class DriverController {
           message: "Driver profile not found",
         });
       }
-      const driver = await Driver.findOne({ userId });
+      const driver = await Driver.findOne({ userId })
+                      .populate("vehicleId");
 
       if (!driver) {  
         return res.status(404).json({
