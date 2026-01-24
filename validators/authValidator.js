@@ -15,7 +15,12 @@ const validateRegister = (data) => {
 const validateLogin = (data) => {
   const schema = Joi.object({
     emailOrPhone: Joi.string().required(),
-    password: Joi.string().required()
+    password: Joi.string().required(),
+    deviceInfo: Joi.object({
+      name: Joi.string().optional(),
+      os: Joi.string().optional(),
+      appVersion: Joi.string().optional()
+    }).optional()
   });
 
   return schema.validate(data);
