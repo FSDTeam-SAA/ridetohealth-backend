@@ -11,6 +11,7 @@ const { uploadToCloudinary } = require("../services/cloudinaryService");
 const { sendNotification } = require('../services/notificationService');
 const Service = require('../models/Service');
 const dotenv = require('dotenv');
+const UAParser = require('ua-parser-js');
 dotenv.config();
 
 
@@ -279,10 +280,19 @@ class AuthController {
 
       // Save refresh token + login history
       user.refreshToken = refreshToken;
+      const parser = new UAParser(req.headers['user-agent']);
+      const deviceInfo = parser.getDevice();
+      const browser = parser.getBrowser();
+      const os = parser.getOS();
+      
+      const deviceName = deviceInfo.model || 
+                        `${browser.name || 'Unknown Browser'} on ${os.name || 'Unknown OS'}`;
+
       user.loginHistory.push({
-        device: req.headers['user-agent'],
+        device: deviceName,
         ipAddress: req.ip || req.connection.remoteAddress
       });
+      
       await user.save({ validateBeforeSave: false });
 
       // Send only one response
