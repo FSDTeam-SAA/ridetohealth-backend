@@ -228,100 +228,102 @@ class AuthController {
   }
 
   async login(req, res) {
+  try {
+    const { error } = validateLogin(req.body);
 
-    try {
-
-      const { error } = validateLogin(req.body);
-
-      if (error) {
-        return res.status(400).json({
-          success: false,
-          message: error.details[0].message
-        });
-        // throw new Error(error.details[0].message);
-      }
-
-      const { emailOrPhone, password } = req.body;
-
-      // Find user by email or phone
-      const user = await User.findOne({
-        $or: [{ email: emailOrPhone }, { phoneNumber: emailOrPhone }]
-      });
-
-      if (!user.isEmailVerified && !user.isPhoneVerified) {
-        console.log("User not verified:", user._id);
-        return res.status(401).json({
-          success: false,
-          message: 'User is not verified'
-        });
-        // throw new Error('User is not verified');
-      }
-
-      if (!user || !(await user.comparePassword(password))) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-        // throw new Error('Invalid credentials');
-      }
-
-      if (!user.isActive) {
-        return res.status(401).json({
-          success: false,
-          message: 'Account is suspended'
-        });
-        // throw new Error('Account is suspended');
-      }
-
-      const payload = { _id: user._id, role: user.role };
-
-      const token = user.generateAccessToken(payload);
-      const refreshToken = user.generateRefreshToken(payload);
-
-      // Save refresh token + login history
-      user.refreshToken = refreshToken;
-      const parser = new UAParser(req.headers['user-agent']);
-      const deviceInfo = parser.getDevice();
-      const browser = parser.getBrowser();
-      const os = parser.getOS();
-      
-      const deviceName = deviceInfo.model || 
-                        `${browser.name || 'Unknown Browser'} on ${os.name || 'Unknown OS'}`;
-
-      user.loginHistory.push({
-        device: deviceName,
-        ipAddress: req.ip || req.connection.remoteAddress
-      });
-      
-      await user.save({ validateBeforeSave: false });
-
-      // Send only one response
-      res.json({
-        success: true,
-        message: 'Login successful',
-        data: {
-          token,
-          refreshToken,
-          user: {
-            id: user._id,
-            fullName: user.fullName,
-            email: user.email,
-            phoneNumber: user.phoneNumber,
-            role: user.role,
-            profileImage: user.profileImage,
-            isEmailVerified: user.isEmailVerified,
-            isPhoneVerified: user.isPhoneVerified
-          }
-        }
-      });
-    } catch (error) {
-      logger.error('Login error :', error);
-      res.status(500).json({
+    if (error) {
+      return res.status(400).json({
         success: false,
-        message: error.message
+        message: error.details[0].message
       });
     }
+
+    const { emailOrPhone, password, deviceInfo } = req.body; // ✅ Get deviceInfo from body
+
+    // Find user by email or phone
+    const user = await User.findOne({
+      $or: [{ email: emailOrPhone }, { phoneNumber: emailOrPhone }]
+    });
+
+    if (!user.isEmailVerified && !user.isPhoneVerified) {
+      console.log("User not verified:", user._id);
+      return res.status(401).json({
+        success: false,
+        message: 'User is not verified'
+      });
+    }
+
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'Account is suspended'
+      });
+    }
+
+    const payload = { _id: user._id, role: user.role };
+
+    const token = user.generateAccessToken(payload);
+    const refreshToken = user.generateRefreshToken(payload);
+
+    // Save refresh token + login history
+    user.refreshToken = refreshToken;
+
+    // ✅ FIXED: Check deviceInfo from request body FIRST
+    let deviceName;
+    
+    if (deviceInfo && deviceInfo.name) {
+      // Use device info from Flutter app (iOS/Android)
+      deviceName = `${deviceInfo.name} (${deviceInfo.os || ''})`.trim();
+    } else {
+      // Fallback to User-Agent parsing (for Postman, browsers, etc.)
+      const parser = new UAParser(req.headers['user-agent']);
+      const result = parser.getResult();
+      
+      deviceName = result.device.model || 
+                  `${result.browser.name || 'Unknown Browser'} on ${result.os.name || 'Unknown OS'}`;
+    }
+
+    user.loginHistory.push({
+      device: deviceName,
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+    
+    await user.save({ validateBeforeSave: false });
+
+    // Send only one response
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token,
+        refreshToken,
+        user: {
+          id: user._id,
+          fullName: user.fullName,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          role: user.role,
+          profileImage: user.profileImage,
+          isEmailVerified: user.isEmailVerified,
+          isPhoneVerified: user.isPhoneVerified
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('Login error :', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
+}
 
   async refreshToken(req, res) {
     try {

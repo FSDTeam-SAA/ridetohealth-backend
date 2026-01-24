@@ -12,40 +12,54 @@ const Notification = require("../models/Notification");
 class DriverController {
 
   async getProfile(req, res) {
-    try {
-      const userId = req.user.userId;
+  try {
+    const userId = req.user.userId;
 
-      const user = await User.findById(userId).select("-currentLocation -password");
+    // ✅ MUST add .lean() here
+    const user = await User.findById(userId)
+      .select("-currentLocation -password")
+      .lean(); // ← THIS IS CRITICAL!
 
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "Driver profile not found",
-        });
-      }
-      const driver = await Driver.findOne({ userId })
-                      .populate("vehicleId");
-
-      if (!driver) {  
-        return res.status(404).json({
-          success: false,
-          message: "Driver not found",
-        });
-      }
-
-      res.json({
-        success: true,
-        profileData: user,
-        driverData: driver,
-      });
-    } catch (error) {
-      logger.error("Get driver profile error:", error);
-      res.status(500).json({
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: "Internal server error",
+        message: "Driver profile not found",
       });
     }
+
+    const driver = await Driver.findOne({ userId })
+      .populate("vehicleId");
+
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver not found",
+      });
+    }
+
+    // ✅ Sort login history - latest first
+    if (user.loginHistory && user.loginHistory.length > 0) {
+      user.loginHistory.sort((a, b) => 
+        new Date(b.loginTime) - new Date(a.loginTime)
+      );
+
+      // Optional: Limit to last 10 logins
+      // user.loginHistory = user.loginHistory.slice(0, 10);
+    }
+
+    res.json({
+      success: true,
+      profileData: user,
+      driverData: driver,
+    });
+  } catch (error) {
+    logger.error("Get driver profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
+}
  async getProfileIdBased(req, res) {
   try {
 
@@ -468,7 +482,7 @@ async updateLocation(req, res) {
       const userId = req.user.userId;
 
       // Fetch user by ID and select only loginHistory field
-      const user = await User.findById(userId).select("loginHistory");
+      const user = await User.findById(userId).select("loginHistory").lean();
 
       if (!user) {
         return res.status(404).json({
@@ -476,7 +490,14 @@ async updateLocation(req, res) {
           message: "User not found",
         });
       }
+       if (user.loginHistory && user.loginHistory.length > 0) {
+        user.loginHistory.sort((a, b) => 
+          new Date(b.loginTime) - new Date(a.loginTime)
+        );
 
+      // Optional: Limit to last 10 logins
+      // user.loginHistory = user.loginHistory.slice(0, 10);
+    }
       res.json({
         success: true,
         message: "Login history fetched successfully",
