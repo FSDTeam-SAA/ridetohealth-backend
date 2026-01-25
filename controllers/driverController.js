@@ -560,7 +560,7 @@ async updateLocation(req, res) {
       console.error("Get vehicle info error:", error);
       res.status(500).json({
         success: false,
-        message: error.message || "Internal server error" ,
+        message: error.message ,
       });
     }   
   }
