@@ -26,7 +26,7 @@ class UserController {
       logger.error('Get profile error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -67,7 +67,7 @@ class UserController {
       console.error('Update profile error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -101,7 +101,7 @@ class UserController {
       logger.error('Upload profile image error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -126,7 +126,7 @@ class UserController {
       logger.error('Update location error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -171,7 +171,7 @@ class UserController {
       logger.error('Add saved place error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -212,7 +212,7 @@ class UserController {
       logger.error('Delete saved place error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -243,7 +243,7 @@ class UserController {
       logger.error('Get recent trips error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -280,7 +280,7 @@ class UserController {
       logger.error('Add payment method error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -299,7 +299,7 @@ class UserController {
       logger.error('Get payment methods error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -320,7 +320,7 @@ class UserController {
       logger.error('Delete payment method error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -345,7 +345,7 @@ class UserController {
       logger.error('Update notification settings error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }

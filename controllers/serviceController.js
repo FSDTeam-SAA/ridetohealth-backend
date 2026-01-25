@@ -25,7 +25,7 @@ class ServiceController {
         res.status(201).json({ success: true, message: 'Service created successfully', data: service });
       } catch (error) {
         logger.error('Create service error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
+        res.status(500).json({ success: false, message: error.message });
       }
     }
   
@@ -92,7 +92,7 @@ class ServiceController {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error"
+      message: error.message,
     });
   }
 }
@@ -117,7 +117,7 @@ class ServiceController {
       logger.error('Get service by ID error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -164,7 +164,7 @@ class ServiceController {
     logger.error("Update service error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message,
     });
   }
 }
@@ -194,7 +194,7 @@ class ServiceController {
         logger.error('Delete service error:', error);
         res.status(500).json({
           success: false,
-          message: 'Internal server error'
+          message: error.message
         });
       }
     }
