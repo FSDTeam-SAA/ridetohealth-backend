@@ -222,7 +222,7 @@ class AuthController {
 
       return res.status(500).json({
         success: false,
-        message: "Internal server error during registration."
+        message: error.message
       });
     }
   }
@@ -362,7 +362,7 @@ class AuthController {
       logger.error('Refresh token error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -415,7 +415,7 @@ class AuthController {
       logger.error('OTP verification error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -448,7 +448,7 @@ class AuthController {
       logger.error('Change password error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -493,7 +493,7 @@ class AuthController {
       logger.error('Password reset request error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -531,7 +531,7 @@ class AuthController {
       logger.error('Password reset error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -548,7 +548,7 @@ class AuthController {
       logger.error('Logout error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }

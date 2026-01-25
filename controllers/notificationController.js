@@ -28,7 +28,7 @@ class NotificationController {
       logger.error('Send notification error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error',
+        message: error.message,
       });
     }
   }
@@ -71,7 +71,7 @@ class NotificationController {
       logger.error("Get notifications error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error"
+        message:error.message
       });
     }
   }
@@ -96,39 +96,10 @@ class NotificationController {
       logger.error('Mark notification as read error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
-  // async veiwNotification(req, res) {
-  //   try {
-  //     const { notificationId } = req.params;
-  //     const userId = req.user.userId;
-  //     const notification = await Notification.findOneAndUpdate(
-  //       { _id: notificationId, receiverId: userId },
-  //       { isRead: true },
-  //       { new: true }
-  //     )
-  //     .populate("senderId", "fullName profileImage")    // sender details
-  //     .populate("receiverId", "fullName profileImage");  // receiver details
-  //     if (!notification) {
-  //       return res.status(404).json({
-  //         success: false,
-  //         message: 'Notification not found'
-  //       });
-  //     }
-  //     res.json({
-  //       success: true,
-  //       data: notification
-  //     });
-  //   } catch (error) {
-  //     logger.error('View notification error:', error);
-  //     res.status(500).json({
-  //       success: false,
-  //       message: 'Internal server error'
-  //     });
-  //   } 
-  // }
   async markAllAsRead(req, res) {
     try {
       const userId = req.user.userId;
@@ -147,7 +118,7 @@ class NotificationController {
       logger.error('Mark all notifications as read error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -167,7 +138,7 @@ class NotificationController {
       logger.error('Delete notification error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -206,7 +177,7 @@ class NotificationController {
       logger.error('Send bulk notification error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }

@@ -92,7 +92,7 @@ async getDashboardStats(req, res) {
     logger.error('Get dashboard stats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: error.message
     });
   }
 }
@@ -151,7 +151,7 @@ async getDashboardStats(req, res) {
       logger.error('Get drivers error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -176,7 +176,7 @@ async getDashboardStats(req, res) {
       });
     } catch (error) {
       logger.error('Get driver by ID error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 
@@ -196,7 +196,7 @@ async getDashboardStats(req, res) {
       });
     } catch (error) {
       logger.error('Delete driver by ID error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 
@@ -251,7 +251,7 @@ async getDashboardStats(req, res) {
       });
     } catch (error) {
       logger.error('Approve driver error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 
@@ -307,7 +307,7 @@ async getDashboardStats(req, res) {
       });
     } catch (error) {
       logger.error('Reject driver error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
   // === Vehicle Management ===
@@ -337,7 +337,7 @@ async getDashboardStats(req, res) {
 
   } catch (error) {
     logger.error('Create vehicle error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: error.message });
   }
 }
 
@@ -377,7 +377,7 @@ async getDashboardStats(req, res) {
     }
     catch (error) {
       logger.error('Get all vehicles error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
   
@@ -396,7 +396,7 @@ async getDashboardStats(req, res) {
       res.json({ success: true, data: vehicle });
     } catch (error) {
       logger.error('Get vehicle by ID error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
 
   }
@@ -415,7 +415,7 @@ async getDashboardStats(req, res) {
 
     } catch (error) {
       logger.error('Delete vehicle by ID error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 
@@ -465,7 +465,7 @@ async getDashboardStats(req, res) {
 
     } catch (error) {
       logger.error('Assign driver to vehicle error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 
@@ -504,7 +504,7 @@ async getDashboardStats(req, res) {
      logger.error('Get vehicles by service error:', error);
      res.status(500).json({
        success: false,
-       message: 'Internal server error'
+       message: error.message
      });
    }
  }
@@ -557,7 +557,7 @@ async getDashboardStats(req, res) {
       logger.error("Create promo code error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error"
+        message: error.message
       });
     }
   }
@@ -600,7 +600,7 @@ async getDashboardStats(req, res) {
     logger.error("Get promo codes error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message,
     });
   }
 }
@@ -620,7 +620,7 @@ async getDashboardStats(req, res) {
 
     } catch (error) {
       logger.error('Delete promo code error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 
@@ -639,7 +639,7 @@ async getDashboardStats(req, res) {
       res.json({ success: true, message: 'Promo code updated successfully', data: promoCode });
     } catch (error) {
       logger.error('Update promo code error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 
@@ -668,7 +668,7 @@ async getDashboardStats(req, res) {
 
     } catch (error) {
       logger.error('Create commission error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
   async getCommissionById(req, res) {
@@ -683,7 +683,7 @@ async getDashboardStats(req, res) {
       res.json({ success: true, data: commission });
     } catch (error) {
       logger.error('Get commission by ID error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
   async updateCommission(req, res) {
@@ -707,7 +707,7 @@ async getDashboardStats(req, res) {
       
     } catch (error) {
       logger.error('Update commission error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     } 
   }
   async deleteCommission(req, res) {
@@ -720,7 +720,7 @@ async getDashboardStats(req, res) {
       res.json({ success: true, message: 'Commission deleted successfully' });
     } catch (error) {
       logger.error('Delete commission error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
   async getAllCommissions(req, res) {
@@ -820,7 +820,7 @@ async getDashboardStats(req, res) {
       logger.error("Get all users error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: error.message,
       });
     }
   }
@@ -852,7 +852,7 @@ async getDashboardStats(req, res) {
       logger.error("Get user by ID error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: error.message,
       });
     }
   }
@@ -869,7 +869,7 @@ async getDashboardStats(req, res) {
     }
     catch (error) {
       logger.error('Delete user by ID error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 
@@ -900,7 +900,7 @@ async getDashboardStats(req, res) {
       logger.error("Get notifications error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: error.message,
       });
     }
   }
@@ -921,7 +921,7 @@ async getDashboardStats(req, res) {
     }
    catch (error) {
       logger.error('Delete ride by ID error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 }

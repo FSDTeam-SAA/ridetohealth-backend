@@ -125,7 +125,7 @@ async handleLocationUpdate(req, res) {
     console.error("❌ Location update error:", error);
     return res.status(500).json({ 
       success: false, 
-      error: "Internal server error" 
+      message: error.message 
     });
   }
 }
@@ -224,7 +224,7 @@ async handleSendMessage(req, res) {
     
   } catch (error) {
     console.error("❌ Ride message error:", error);
-    return res.status(500).json({ success: false, error: "Internal server error" });
+    return res.status(500).json({ success: false, message: error.message });
   }
 }
 
@@ -246,7 +246,7 @@ async handleSendMessage(req, res) {
       });
     } catch (error) {
       logger.error("Get messages error:", error);
-      return res.status(500).json({ success: false, error: "Internal server error" });
+      return res.status(500).json({ success: false, message: error.message });
     }
   }
 
@@ -312,7 +312,7 @@ async handleSendMessage(req, res) {
       if (callback) callback({ success: true, status, timestamp: statusUpdate.timestamp });
     } catch (error) {
       logger.error('Ride status update error:', error);
-      if (callback) callback({ success: false, error: 'Internal server error' });
+      if (callback) callback({ success: false, message: error.message });
     }
   }
 
@@ -357,7 +357,7 @@ async handleSendMessage(req, res) {
       if (callback) callback({ success: true, available });
     } catch (error) {
       logger.error('Driver availability error:', error);
-      if (callback) callback({ success: false, error: 'Internal server error' });
+      if (callback) callback({ success: false, error: error.message });
     }
   }
 
@@ -408,7 +408,7 @@ async handleSendMessage(req, res) {
       if (callback) callback({ success: true, count: result.modifiedCount });
     } catch (error) {
       logger.error('Mark messages read error:', error);
-      if (callback) callback({ success: false, error: 'Internal server error' });
+      if (callback) callback({ success: false, error: error.message });
     }
   }
 

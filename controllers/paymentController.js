@@ -56,7 +56,7 @@ class PaymentController {
       logger.error('Add wallet balance error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message:error.message
       });
     }
   }
@@ -90,7 +90,7 @@ class PaymentController {
       logger.error('Get wallet history error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }
@@ -159,7 +159,7 @@ class PaymentController {
       logger.error('Validate promo code error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error'
+        message: error.message
       });
     }
   }

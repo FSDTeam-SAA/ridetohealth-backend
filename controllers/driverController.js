@@ -56,7 +56,7 @@ class DriverController {
     logger.error("Get driver profile error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message:error.message,
     });
   }
 }
@@ -90,7 +90,7 @@ class DriverController {
     
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message,
     });
   }
 }
@@ -137,7 +137,7 @@ class DriverController {
       console.error("Update driver profile error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: error.message,
       });
     }
   }
@@ -197,7 +197,7 @@ async updateLocation(req, res) {
       logger.error('Update driver location error:', error);
       res.status(500).json({
         success: false,
-        message: 'Internal server error',
+        message: error.message,
       });
     }
   }
@@ -228,7 +228,7 @@ async updateLocation(req, res) {
       logger.error("Toggle online status error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: error.message,
       });
     }
   }
@@ -294,7 +294,7 @@ async updateLocation(req, res) {
 
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: error.message,
       });
     }
   }
@@ -373,7 +373,7 @@ async updateLocation(req, res) {
       logger.error("Request withdrawal error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: error.message,
       });
     }
   }
@@ -472,7 +472,7 @@ async updateLocation(req, res) {
     console.error("Get driver reviews error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message,
     });
   }
 }
@@ -507,7 +507,7 @@ async updateLocation(req, res) {
       console.error("Get login history error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: error.message,
       });
     }
   }
@@ -526,7 +526,6 @@ async updateLocation(req, res) {
       }
 
       const driver = await Driver.findOne({ userId });
-      console.log(driver);
 
       if (!driver) {
         return res.status(404).json({
@@ -534,10 +533,10 @@ async updateLocation(req, res) {
           message: "Driver not found",
         });
       }
-
-      const vehicle = await Vehicle.findOne({ driverId: driver._id });
-      console.log(vehicle);
-      const service = await Service.findById(vehicle.serviceId);
+      const vehicleId = driver.vehicleId || null;
+      const serviceId = driver.serviceId || null; 
+      const vehicle = await Vehicle.findById(vehicleId);
+      const service = await Service.findById(serviceId);
 
       if (!vehicle) {
         return res.status(404).json({
@@ -561,9 +560,9 @@ async updateLocation(req, res) {
       console.error("Get vehicle info error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: error.message ,
       });
-    }
+    }   
   }
 
   async sendRequestToAdmin(req, res) {
@@ -600,7 +599,7 @@ async updateLocation(req, res) {
       console.error("Send request to admin error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message: error.message,
       });
     }
   }
@@ -734,7 +733,7 @@ async createDriverStripeAccount(req, res) {
         console.error("Error getting Stripe dashboard link:", error);
         res.status(500).json({
             success: false,
-            message: "Internal server error",
+            message: error.message,
           });
     }
   }

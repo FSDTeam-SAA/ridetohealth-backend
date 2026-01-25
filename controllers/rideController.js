@@ -144,7 +144,7 @@ async requestRide(req, res) {
     logger.error('Request ride error:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
+      message: error.message,
       error: error.message
     });
   }
@@ -306,7 +306,7 @@ async requestRide(req, res) {
       logger.error("Get ride status error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error"
+        message: error.message
       });
     }
   }
@@ -410,7 +410,7 @@ async requestRide(req, res) {
     logger.error("Update ride status error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.message,
     });
   }
 }
@@ -653,7 +653,7 @@ async requestRide(req, res) {
     console.error('Rate ride error:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: error.message
     });
   }
 }
