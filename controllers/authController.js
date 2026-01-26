@@ -167,7 +167,14 @@ class AuthController {
       // 6️⃣ Create driver profile if role is driver
       if (role === "driver") {
         const adminId = process.env.ADMIN_ID;
-        const driver = await Driver.create({ userId: user._id, serviceId: service._id });
+        if(!service){
+          res.status(404).json({
+            success:false,
+            message: "Service not found"
+          })
+        }
+        const serviceId = service._id;
+        const driver = await Driver.create({ userId: user._id, serviceId});
        
         // Send notification
         notification = await sendNotification({
