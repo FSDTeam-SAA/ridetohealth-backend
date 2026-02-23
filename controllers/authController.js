@@ -31,16 +31,16 @@ class AuthController {
       } = req.body;
 
       // 1️⃣ Validate required fields
-      if (!fullName || !email || !phoneNumber || !password) {
+      if (!fullName || !email || !password) {
         return res.status(400).json({
           success: false,
-          message: "Full name, email, phone number, and password are required."
+          message: "Full name, email, and password are required."
         });
       }
 
       // 2️⃣ Check if user already exists
       const existingUser = await User.findOne({
-        $or: [{ email }, { phoneNumber }]
+        $or: [{ email }]
       });
 
       if (existingUser) {

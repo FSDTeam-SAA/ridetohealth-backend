@@ -86,7 +86,7 @@ app.use('/api/auth/forgot-password', authLimiter);
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Server is running',
+    message: 'Server is running smoothly currently. redeploy with khalid + mahabur',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development'
