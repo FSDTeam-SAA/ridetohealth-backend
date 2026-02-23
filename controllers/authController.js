@@ -39,16 +39,12 @@ class AuthController {
       }
 
       // 2️⃣ Check if user already exists
-      const existingUser = await User.findOne({
-        $or: [{ email }]
-      });
+      const existingUser = await User.findOne({email: email});
 
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          message: existingUser.email === email
-            ? "This email is already registered."
-            : "This phone number is already registered."
+          message: "This email is already registered."
         });
       }
 
