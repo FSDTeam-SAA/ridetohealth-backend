@@ -247,6 +247,12 @@ class AuthController {
     const user = await User.findOne({
       $or: [{ email: emailOrPhone }, { phoneNumber: emailOrPhone }]
     });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
 
     if (!user.isEmailVerified && !user.isPhoneVerified) {
       console.log("User not verified:", user._id);
@@ -555,6 +561,48 @@ class AuthController {
       });
     }
   }
+
+  async deleteAccount(req, res) {
+    try {
+      const { userId: id } = req.user;
+      // const {email} = req.user; 
+      const {emailOrPhone} = req.body;
+      console.log(req.user);
+
+      if (!emailOrPhone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email or phone is required to delete account'
+        });
+      }
+      if (emailOrPhone !== req.user.email) {
+        return res.status(401).json({
+          success: false,
+          message: 'Email does not match authenticated user'
+        });
+      }
+      const user = await User.findOne({email:emailOrPhone});
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      await User.findByIdAndDelete(id);
+      res.json({
+        success: true,
+        message: 'Account deleted successfully'
+      });
+    } catch (error) {
+      logger.error('Delete account error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  } 
 }
 
 module.exports = new AuthController();
