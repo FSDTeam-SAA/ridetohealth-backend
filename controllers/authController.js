@@ -572,7 +572,7 @@ class AuthController {
       if (!emailOrPhone) {
         return res.status(400).json({
           success: false,
-          message: 'Email or phone is required to delete account'
+          message: 'Email is required to delete account'
         });
       }
       if (emailOrPhone !== req.user.email) {
