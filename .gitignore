@@ -1,5 +1,4 @@
 /node_modules
-/.vscode
 /logs
 config.bat
 branch_structure.json
